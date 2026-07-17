@@ -140,7 +140,6 @@ export function PulsoDelHogar({ dimensions, userName }: PulsoDelHogarProps) {
   };
 
   const pulsoList = getPulsoData();
-  const activePulso = selectedKey ? pulsoList.find(p => p.key === selectedKey) : null;
 
   return (
     <div className="glass-card" style={{ marginBottom: '40px', padding: '30px sm:padding: 40px' }}>
@@ -156,21 +155,19 @@ export function PulsoDelHogar({ dimensions, userName }: PulsoDelHogarProps) {
         </p>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr lg:grid-template-columns: 1.2fr 0.8fr', gap: '30px' }} className="pulso-layout">
-        
-        {/* Grilla de Dimensiones */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          {pulsoList.map((item) => {
-            const isSelected = selectedKey === item.key;
-            
-            // Bar color logic
-            let barColor = '#B05B5B'; // Critico
-            if (item.score >= 75) barColor = '#5C7A63'; // Fuerte
-            else if (item.score >= 50) barColor = '#B28E6B'; // Moderado
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }} className="pulso-layout">
+        {pulsoList.map((item) => {
+          const isSelected = selectedKey === item.key;
+          
+          // Bar color logic
+          let barColor = '#B05B5B'; // Critico
+          if (item.score >= 75) barColor = '#5C7A63'; // Fuerte
+          else if (item.score >= 50) barColor = '#B28E6B'; // Moderado
 
-            return (
+          return (
+            <div key={item.key} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {/* Row Selector Header */}
               <div 
-                key={item.key}
                 onClick={() => setSelectedKey(isSelected ? null : item.key)}
                 style={{
                   background: isSelected ? 'rgba(152,117,87,0.06)' : 'rgba(255,255,255,0.4)',
@@ -186,14 +183,19 @@ export function PulsoDelHogar({ dimensions, userName }: PulsoDelHogarProps) {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <span style={{ fontSize: '1.2rem' }}>{item.emoji}</span>
-                    <span style={{ fontWeight: 500, fontSize: '0.9rem', color: '#44403C' }}>{item.name}</span>
+                    <span style={{ fontWeight: 500, fontSize: '0.95rem', color: '#44403C' }}>{item.name}</span>
                   </div>
-                  <span style={{ fontSize: '0.9rem', fontWeight: 600, color: '#987557' }}>
-                    {item.score}/100
-                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '0.9rem', fontWeight: 600, color: '#987557' }}>
+                      {item.score}/100
+                    </span>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', transform: isSelected ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.25s ease' }}>
+                      ▼
+                    </span>
+                  </div>
                 </div>
                 
-                {/* Progress Bar Container */}
+                {/* Progress Bar */}
                 <div style={{ height: '6px', background: '#EAE7E1', borderRadius: '3px', overflow: 'hidden' }}>
                   <div style={{
                     width: `${item.score}%`,
@@ -204,95 +206,56 @@ export function PulsoDelHogar({ dimensions, userName }: PulsoDelHogarProps) {
                   }} />
                 </div>
               </div>
-            );
-          })}
-        </div>
 
-        {/* Panel de Detalle / Recomendación de Coherencia Contextual */}
-        <div style={{ display: 'flex', flexDirection: 'column' }}>
-          {activePulso ? (
-            <div style={{
-              background: 'rgba(152,117,87,0.04)',
-              border: '1px dashed #987557',
-              borderRadius: '8px',
-              padding: '24px',
-              height: '100%',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'space-between',
-              animation: 'fadeInUp 0.3s ease-out',
-            }}>
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
-                  <span style={{ fontSize: '2rem' }}>{activePulso.emoji}</span>
+              {/* Accordion Detail Drawer */}
+              {isSelected && (
+                <div style={{
+                  background: 'rgba(152,117,87,0.04)',
+                  border: '1px dashed #987557',
+                  borderRadius: '8px',
+                  padding: '20px 24px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '14px',
+                  animation: 'fadeIn 0.25s ease-out',
+                  textAlign: 'left'
+                }}>
                   <div>
-                    <h4 style={{ margin: 0, fontSize: '1.2rem', fontFamily: 'Cormorant Garamond, serif', fontWeight: 600 }}>
-                      {activePulso.name}
-                    </h4>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block' }}>
-                      {activePulso.description}
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'block', marginBottom: '6px', fontWeight: 500 }}>
+                      {item.description}
                     </span>
+                    <p style={{ fontSize: '0.95rem', color: '#44403C', lineHeight: 1.5, margin: 0, fontStyle: 'italic' }}>
+                      "{item.interpretation}"
+                    </p>
+                  </div>
+
+                  <div style={{
+                    background: '#fff',
+                    border: '1px solid #D6D2CA',
+                    borderRadius: '6px',
+                    padding: '14px 16px',
+                  }}>
+                    <span style={{
+                      fontSize: '0.65rem',
+                      color: '#987557',
+                      fontWeight: 600,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.1em',
+                      display: 'block',
+                      marginBottom: '4px',
+                    }}>
+                      ✨ Próxima Microacción (5-10 min)
+                    </span>
+                    <p style={{ fontSize: '0.88rem', color: '#1C1917', fontWeight: 500, lineHeight: 1.4, margin: 0 }}>
+                      {item.nextAction}
+                    </p>
                   </div>
                 </div>
-                
-                <p style={{ fontSize: '0.9rem', color: '#44403C', lineHeight: 1.5, marginBottom: '20px', fontStyle: 'italic' }}>
-                  "{activePulso.interpretation}"
-                </p>
-              </div>
-
-              <div style={{
-                background: '#fff',
-                border: '1px solid #D6D2CA',
-                borderRadius: '6px',
-                padding: '16px',
-                marginTop: 'auto',
-              }}>
-                <span style={{
-                  fontSize: '0.65rem',
-                  color: '#987557',
-                  fontWeight: 600,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.1em',
-                  display: 'block',
-                  marginBottom: '6px',
-                }}>
-                  ✨ Próxima Microacción (5-10 min)
-                </span>
-                <p style={{ fontSize: '0.85rem', color: '#1C1917', fontWeight: 500, lineHeight: 1.4, margin: 0 }}>
-                  {activePulso.nextAction}
-                </p>
-              </div>
+              )}
             </div>
-          ) : (
-            <div style={{
-              border: '1px dashed #D6D2CA',
-              borderRadius: '8px',
-              padding: '40px 24px',
-              textAlign: 'center',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              height: '100%',
-              color: '#878179',
-            }}>
-              <span style={{ fontSize: '2.5rem', marginBottom: '16px' }}>👀</span>
-              <p style={{ fontSize: '0.9rem', margin: 0, maxWidth: '280px', lineHeight: 1.5 }}>
-                Seleccioná cualquiera de las dimensiones de la izquierda para ver el diagnóstico detallado y tu plan de acción recomendado.
-              </p>
-            </div>
-          )}
-        </div>
-
+          );
+        })}
       </div>
-
-      <style>{`
-        @media (max-width: 1024px) {
-          .pulso-layout {
-            grid-template-columns: 1fr !important;
-          }
-        }
-      `}</style>
     </div>
   );
 }
