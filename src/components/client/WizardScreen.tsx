@@ -102,6 +102,13 @@ export function WizardScreen() {
       alert('Seleccioná al menos un ambiente para evaluar.');
       return;
     }
+
+    // Step 4: progress through rooms first using the main button
+    if (wizardStep === 4 && currentRoomIdx < form.selectedRooms.length - 1) {
+      setCurrentRoomIdx(prev => prev + 1);
+      return;
+    }
+
     if (!completedSteps.includes(wizardStep)) {
       setCompletedSteps([...completedSteps, wizardStep]);
     }
@@ -117,6 +124,12 @@ export function WizardScreen() {
   };
 
   const goPrev = () => {
+    // Step 4: regress through rooms first
+    if (wizardStep === 4 && currentRoomIdx > 0) {
+      setCurrentRoomIdx(prev => prev - 1);
+      return;
+    }
+
     if (wizardStep > 1) {
       setSlideClass('slide-in-left');
       setWizardStep(wizardStep - 1);
@@ -635,28 +648,11 @@ export function WizardScreen() {
                           </p>
                         </div>
 
-                        {/* Navegación interna entre ambientes */}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '28px', gap: '10px' }}>
-                          <button type="button"
-                            onClick={() => setCurrentRoomIdx(prev => Math.max(0, prev - 1))}
-                            disabled={currentRoomIdx === 0}
-                            className="btn btn-secondary"
-                            style={{ padding: '8px 16px', fontSize: '0.75rem', opacity: currentRoomIdx === 0 ? 0.35 : 1 }}>
-                            ← Anterior
-                          </button>
-
-                          {currentRoomIdx < total - 1 ? (
-                            <button type="button"
-                              onClick={() => setCurrentRoomIdx(prev => Math.min(total - 1, prev + 1))}
-                              className="btn btn-primary"
-                              style={{ padding: '8px 16px', fontSize: '0.75rem' }}>
-                              Siguiente →
-                            </button>
-                          ) : (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--success)', fontSize: '0.82rem', fontWeight: 600 }}>
-                              <CheckCircle2 size={16} /> ¡Listo!
-                            </div>
-                          )}
+                        {/* No duplicate inner buttons, unified with bottom footer actions */}
+                        <div style={{ marginTop: '20px', textAlign: 'center' }}>
+                          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                            Usá los botones de continuar al pie para avanzar por tus ambientes.
+                          </span>
                         </div>
                       </div>
                     );
@@ -940,10 +936,15 @@ export function WizardScreen() {
             {/* ── Bottom Actions ── */}
             <div className="wizard-actions" style={{ display: 'flex', justifyContent: 'space-between', marginTop: '36px', borderTop: '1px solid var(--border-color)', paddingTop: '18px' }}>
               <button type="button" onClick={goPrev} className="btn btn-secondary">
-                <ChevronLeft size={14} style={{ marginRight: '4px' }} /> Anterior
+                <ChevronLeft size={14} style={{ marginRight: '4px' }} />
+                {wizardStep === 4 && currentRoomIdx > 0 ? 'Ambiente anterior' : 'Anterior'}
               </button>
               <button type="button" onClick={goNext} className="btn btn-primary">
-                {wizardStep === 6 ? 'Obtener mi diagnóstico' : 'Siguiente'}{' '}
+                {wizardStep === 6 
+                  ? 'Obtener mi diagnóstico' 
+                  : (wizardStep === 4 && currentRoomIdx < form.selectedRooms.length - 1)
+                  ? 'Siguiente ambiente'
+                  : 'Siguiente'}{' '}
                 <ChevronRight size={14} style={{ marginLeft: '4px' }} />
               </button>
             </div>

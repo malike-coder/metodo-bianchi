@@ -1072,17 +1072,10 @@ body.dark .ibbh-circle {
 }
 
 .results-layout {
-  display: grid;
-  grid-template-columns: 1fr 1.1fr;
-  gap: 50px;
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
   margin-bottom: 50px;
-}
-
-@media (max-width: 1024px) {
-  .results-layout {
-    grid-template-columns: 1fr;
-    gap: 30px;
-  }
 }
 
 /* Radar and Dimension List Layout Wrapper */
