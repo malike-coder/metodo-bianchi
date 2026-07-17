@@ -8,32 +8,32 @@ const STEPS = [
   {
     msg: 'Analizando tu relación con el espacio...',
     pct: 12,
-    fact: 'Las personas que pasan más de 10 horas en casa son especialmente sensibles a la calidad ambiental interior (IEQ). WHO, 2009.',
+    fact: 'Las personas que pasan más de 10 horas en casa son especialmente sensibles a la calidad ambiental interior (IEQ). Organización Mundial de la Salud, 2009.',
   },
   {
     msg: 'Evaluando calidad ambiental interior (IEQ)...',
     pct: 28,
-    fact: 'La iluminación natural adecuada reduce el cansancio hasta un 35%. Ulrich, R. (1984).',
+    fact: 'La iluminación natural contribuye a reducir el cansancio visual y mejora el estado de alerta durante el día (Ulrich, R., 1984).',
   },
   {
     msg: 'Calculando el Índice IBBH...',
     pct: 45,
-    fact: 'El desorden visual activa la amígdala y eleva el cortisol. Un espacio ordenado mejora el sueño hasta un 28%. Princeton Neuroscience Institute.',
+    fact: 'El desorden visual genera sobrecarga sensorial que dificulta el descanso y la concentración. Un espacio organizado se asocia con una mejor calidad del sueño (Princeton Neuroscience Institute).',
   },
   {
     msg: 'Procesando biofilia y naturaleza...',
     pct: 62,
-    fact: 'La exposición a plantas de interior reduce el estrés en un 37%. Kaplan, S. (1995).',
+    fact: 'La exposición a plantas de interior y visuales verdes contribuye a reducir indicadores de estrés percibido en entornos residenciales (Kaplan, S., 1995).',
   },
   {
     msg: 'Mapeando ambientes y generando plano...',
     pct: 78,
-    fact: 'La temperatura de color de la luz afecta la producción de melatonina. Luz fría en dormitorios reduce el sueño profundo hasta un 20%.',
+    fact: 'La temperatura de color de la luz artificial puede interferir con el ciclo de descanso natural. Luz cálida en dormitorios favorece la transición al sueño (CIE, 2009).',
   },
   {
     msg: 'Generando hipótesis de neuroarquitectura...',
     pct: 92,
-    fact: 'Los entornos con orden, naturaleza y refugio reducen la fatiga mental. Kaplan & Kaplan, 1989.',
+    fact: 'Los entornos con orden, naturaleza y refugio reducen la fatiga mental y promueven la restauración atencional (Kaplan & Kaplan, 1989).',
   },
   {
     msg: 'Redactando tu plan de acción personalizado...',
@@ -82,7 +82,7 @@ export default function ProcessingScreen() {
     async function fetchAiDiagnostic() {
       setAiLoading(true);
       try {
-        const result = await generateClientNarrativeWithAi(form, {});
+        const result = await generateClientNarrativeWithAi(form, form.scannedRooms || {});
         if (isMounted && result) {
           setAiResult(result);
         }

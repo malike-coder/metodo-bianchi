@@ -1,16 +1,22 @@
 import { useState, useEffect } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { buildClientFromForm } from '../../utils/ibbhCalculator';
-import { ChevronRight, ChevronLeft, CheckCircle2, Scan, AlertCircle } from 'lucide-react';
+import { analyzeRoomPhotoWithAi } from '../../services/aiService';
+import { ChevronRight, ChevronLeft, CheckCircle2, Scan, AlertCircle, Upload, Plus, Trash2 } from 'lucide-react';
+import type { RoomAiAnalysis } from '../../types/bianchi';
 
-const ROOM_ICONS: Record<string, string> = {
+const DEFAULT_ROOM_ICONS: Record<string, string> = {
   'Entrada': '🚪',
   'Living': '🛋️',
+  'Comedor': '🍽️',
   'Cocina': '🍳',
   'Dormitorio Principal': '🛏️',
+  'Dormitorio Secundario': '🧸',
   'Baño': '🛁',
   'Escritorio': '💻',
+  'Lavadero': '🧺',
   'Patio / Balcón': '🌿',
+  'Cochera': '🚗',
 };
 
 const STEPS = [
@@ -18,7 +24,7 @@ const STEPS = [
   { id: 2, label: 'Relación Emocional con tu Casa' },
   { id: 3, label: 'Selección de Ambientes' },
   { id: 4, label: 'Evaluación por Ambientes' },
-  { id: 5, label: 'Condiciones Físicas del Espacio' },
+  { id: 5, label: 'Condiciones de la Edificación y el Entorno' },
   { id: 6, label: 'Biofilia y Naturaleza' },
   { id: 7, label: 'Orden y Carga Cognitiva' },
   { id: 8, label: 'Fotografías del Hábitat' },
@@ -41,7 +47,30 @@ export function WizardScreen() {
 
   // Polaroid scanning state for Step 8
   const [scanningRooms, setScanningRooms] = useState<Record<string, boolean>>({});
-  const [scannedRooms, setScannedRooms] = useState<Record<string, { light: number; order: number; bio: number }>>({});
+  const [scannedRooms, setScannedRooms] = useState<Record<string, RoomAiAnalysis>>(form.scannedRooms || {});
+  
+  // Local photo previews URL state: Record<roomName, previewUrls[]>
+  const [photoPreviews, setPhotoPreviews] = useState<Record<string, string[]>>({});
+
+  // Cleanup all blob URLs on unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      Object.values(photoPreviews).forEach((urls) =>
+        urls.forEach((url) => URL.revokeObjectURL(url))
+      );
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Custom rooms write-in states for Step 3
+  const [customRoomName, setCustomRoomName] = useState('');
+  const [showCustomInput, setShowCustomInput] = useState(false);
+  const [customRooms, setCustomRooms] = useState<string[]>([]);
+
+  // Get active icon for a room (handling custom write-in rooms)
+  const getRoomIcon = (room: string): string => {
+    return DEFAULT_ROOM_ICONS[room] || '🏠';
+  };
 
   // Initialize room evaluations when rooms selection changes
   useEffect(() => {
@@ -102,9 +131,21 @@ export function WizardScreen() {
       : [...form.selectedRooms, roomName];
 
     updateForm({ selectedRooms: newRooms });
-    
-    // Reset carousel index if selected rooms change
     setCurrentRoomIdx(0);
+  };
+
+  const addCustomRoom = () => {
+    const trimmed = customRoomName.trim();
+    if (!trimmed) return;
+    if (form.selectedRooms.includes(trimmed)) {
+      alert('Este ambiente ya está agregado.');
+      return;
+    }
+
+    setCustomRooms((prev) => [...prev, trimmed]);
+    toggleRoom(trimmed);
+    setCustomRoomName('');
+    setShowCustomInput(false);
   };
 
   const handleRoomEvalChange = (roomName: string, field: 'feel' | 'light' | 'order', value: number) => {
@@ -117,22 +158,104 @@ export function WizardScreen() {
     updateForm({ roomEvaluations: updated });
   };
 
-  const simulateScan = (room: string) => {
+  // Upload/replace photo at a specific slot index (0 to 3) for a room
+  const handlePhotoUploadAtIdx = (room: string, file: File | undefined, index: number) => {
+    if (!file) return;
+
+    // 1. Revoke the old blob URL at this slot before replacing it
+    const oldPreviews = photoPreviews[room] || [];
+    if (oldPreviews[index]) {
+      URL.revokeObjectURL(oldPreviews[index]);
+    }
+
+    // 2. Get current files or pad array to at least index size
+    const currentFiles = [...(form.photoFiles[room] || [])];
+    currentFiles[index] = file;
+
+    // Filter out empty spaces (keep it compact)
+    const updatedFiles = currentFiles.filter(Boolean);
+
+    // Save File array in the store form state
+    const allFiles = { ...form.photoFiles };
+    allFiles[room] = updatedFiles;
+    updateForm({ photoFiles: allFiles, photosUploaded: true });
+
+    // 3. Generate new local object URLs for all current files
+    const previews = updatedFiles.map(f => URL.createObjectURL(f));
+    setPhotoPreviews((prev) => ({ ...prev, [room]: previews }));
+  };
+
+  // Remove photo at slot index
+  const handlePhotoRemoveAtIdx = (room: string, index: number) => {
+    // Revoke the blob URL being removed to free memory
+    const oldPreviews = photoPreviews[room] || [];
+    if (oldPreviews[index]) {
+      URL.revokeObjectURL(oldPreviews[index]);
+    }
+
+    const currentFiles = [...(form.photoFiles[room] || [])];
+    currentFiles.splice(index, 1);
+
+    const allFiles = { ...form.photoFiles };
+    allFiles[room] = currentFiles;
+    updateForm({ photoFiles: allFiles, photosUploaded: currentFiles.length > 0 });
+
+    const previews = currentFiles.map(f => URL.createObjectURL(f));
+    setPhotoPreviews((prev) => ({ ...prev, [room]: previews }));
+  };
+
+  const handleScanRoom = async (room: string) => {
+    const files = form.photoFiles[room] || [];
     setScanningRooms(prev => ({ ...prev, [room]: true }));
     
-    // Dynamic values based on form evaluation inputs to make it coherent!
+    // 1. Call Gemini Vision with ALL files uploaded for this room
+    if (files.length > 0) {
+      const aiAnalysis = await analyzeRoomPhotoWithAi(files, room);
+      if (aiAnalysis) {
+        setScanningRooms(prev => ({ ...prev, [room]: false }));
+        const scanResult: RoomAiAnalysis = {
+          lightQuality: aiAnalysis.lightQuality,
+          orderScore: aiAnalysis.orderScore,
+          biophiliaScore: aiAnalysis.biophiliaScore,
+          colorHarmony: aiAnalysis.colorHarmony,
+          spatialBalance: aiAnalysis.spatialBalance,
+          summary: aiAnalysis.summary,
+          recommendations: aiAnalysis.recommendations,
+        };
+        setScannedRooms(prev => ({ ...prev, [room]: scanResult }));
+        updateForm({ scannedRooms: { ...form.scannedRooms, [room]: scanResult } });
+        
+        // Calibrate step 4 evaluations based on actual vision scores (1-100 to 1-5)
+        const updated = { ...form.roomEvaluations };
+        const current = updated[room] || { feel: 3, light: 3, order: 3 };
+        updated[room] = {
+          ...current,
+          light: Math.min(5, Math.max(1, Math.round(aiAnalysis.lightQuality / 20))),
+          order: Math.min(5, Math.max(1, Math.round(aiAnalysis.orderScore / 20))),
+        };
+        updateForm({ roomEvaluations: updated });
+        return;
+      }
+    }
+
+    // 2. Local fallback if no key is configured or no files
     const roomEval = form.roomEvaluations[room] || { feel: 3, light: 3, order: 3 };
-    
     setTimeout(() => {
       setScanningRooms(prev => ({ ...prev, [room]: false }));
-      setScannedRooms(prev => ({
-        ...prev,
-        [room]: {
-          light: Math.min(100, roomEval.light * 20 + Math.floor(Math.random() * 8)),
-          order: Math.min(100, roomEval.order * 20 - Math.floor(Math.random() * 6)),
-          bio: Math.min(100, (form.slideBio1 + (room === 'Patio / Balcón' ? 2 : 0)) * 20 - Math.floor(Math.random() * 5)),
-        }
-      }));
+      const scanResult: RoomAiAnalysis = {
+        lightQuality: Math.min(100, roomEval.light * 20 + Math.floor(Math.random() * 8)),
+        orderScore: Math.min(100, roomEval.order * 20 - Math.floor(Math.random() * 6)),
+        biophiliaScore: Math.min(100, (form.slideBio1 + (room === 'Patio / Balcón' ? 2 : 0)) * 20 - Math.floor(Math.random() * 5)),
+        colorHarmony: 75,
+        spatialBalance: 80,
+        summary: `Se simuló el análisis visual combinado para el ambiente ${room}. Muestra niveles estables en base a las fotos cargadas.`,
+        recommendations: [
+          `Optimizar el asoleamiento de rincones en ${room}`,
+          `Sostener hábitos diarios de ventilación cruzada en ${room}`
+        ]
+      };
+      setScannedRooms(prev => ({ ...prev, [room]: scanResult }));
+      updateForm({ scannedRooms: { ...form.scannedRooms, [room]: scanResult } });
     }, 2000);
   };
 
@@ -176,12 +299,16 @@ export function WizardScreen() {
     updateForm(filledForm);
     
     // Autofill mock scan results for Step 8 demo
-    const mockScans: Record<string, { light: number; order: number; bio: number }> = {};
+    const mockScans: Record<string, RoomAiAnalysis> = {};
     filledForm.selectedRooms.forEach(r => {
       mockScans[r] = {
-        light: Math.min(100, filledForm.roomEvaluations[r as keyof typeof filledForm.roomEvaluations].light * 20),
-        order: Math.min(100, filledForm.roomEvaluations[r as keyof typeof filledForm.roomEvaluations].order * 20),
-        bio: Math.min(100, filledForm.slideBio1 * 20),
+        lightQuality: Math.min(100, filledForm.roomEvaluations[r as keyof typeof filledForm.roomEvaluations].light * 20),
+        orderScore: Math.min(100, filledForm.roomEvaluations[r as keyof typeof filledForm.roomEvaluations].order * 20),
+        biophiliaScore: Math.min(100, filledForm.slideBio1 * 20),
+        colorHarmony: 80,
+        spatialBalance: 85,
+        summary: `Análisis visual simulado para el piloto de ${r}`,
+        recommendations: [`Mejorar orden en ${r}`]
       };
     });
     setScannedRooms(mockScans);
@@ -191,14 +318,13 @@ export function WizardScreen() {
 
   // Helper for Soundwave graphics
   const renderSoundwave = (value: number) => {
-    // Heights for 7 bars depending on noise (lower comfort value -> higher soundwave bars)
-    const activeVal = 6 - value; // invert comfort (1 = quiet/comfortable, 5 = very noisy)
+    const activeVal = 6 - value; 
     const baseHeights = [
-      [6, 10, 4, 8, 4, 10, 6],     // comfort 5 (low noise)
-      [10, 14, 8, 12, 8, 14, 10],   // comfort 4
-      [14, 20, 12, 18, 12, 20, 14], // comfort 3
-      [18, 26, 16, 24, 16, 26, 18], // comfort 2
-      [22, 32, 20, 30, 20, 32, 22], // comfort 1 (max noise)
+      [6, 10, 4, 8, 4, 10, 6],     
+      [10, 14, 8, 12, 8, 14, 10],   
+      [14, 20, 12, 18, 12, 20, 14], 
+      [18, 26, 16, 24, 16, 26, 18], 
+      [22, 32, 20, 30, 20, 32, 22], 
     ];
     const heights = baseHeights[activeVal - 1] || baseHeights[2];
     return (
@@ -230,11 +356,11 @@ export function WizardScreen() {
   // Helper for solar window rays
   const renderSunRays = (value: number) => {
     const rayWidths = [
-      [0, 0, 0],       // level 1 (overcast)
-      [6, 4, 6],       // level 2
-      [14, 10, 14],    // level 3
-      [22, 16, 22],    // level 4
-      [32, 24, 32],    // level 5 (radiant sun)
+      [0, 0, 0],       
+      [6, 4, 6],       
+      [14, 10, 14],    
+      [22, 16, 22],    
+      [32, 24, 32],    
     ];
     const widths = rayWidths[value - 1] || rayWidths[2];
     return (
@@ -481,7 +607,7 @@ export function WizardScreen() {
                   </div>
                   {/* Visual feedback */}
                   <p style={{ fontSize: '0.78rem', color: 'var(--brand-primary)', marginTop: '8px', fontStyle: 'italic', margin: '8px 0 0 0' }}>
-                    {form.slideEmotional1 <= 2 ? '⚠️ Se siente ajeno, como vivir en un espacio prestado.' : form.slideEmotional1 === 3 ? 'Neutral, cumple su rol funcional.' : '✨ Totalmente alineado con tu identidad y valores actuales.'}
+                    {form.slideEmotional1 <= 2 ? '⚠️ Se siente ajeno, como vivir en un espacio prestado.' : form.slideEmotional1 === 3 ? 'Neutral, cumple su rol funcional.' : '✨ Totalmente alíneado con tu identidad y valores actuales.'}
                   </p>
                 </div>
 
@@ -540,14 +666,15 @@ export function WizardScreen() {
               </div>
             )}
 
-            {/* ── PASO 3: Selección de Ambientes ── */}
+            {/* ── PASO 3: Selección de Ambientes (Extendida con "Otro") ── */}
             {wizardStep === 3 && (
               <div className="animate-[fadeIn_0.4s_ease-out]">
                 <p className="text-sm text-[#878179] mb-6">
                   Marcá los ambientes que tiene tu casa actual. Evaluaremos de forma interactiva y focalizada cada uno para encontrar bloqueos de diseño.
                 </p>
                 <div className="room-selector-grid">
-                  {Object.keys(ROOM_ICONS).map((roomKey) => {
+                  {/* Default Rooms */}
+                  {Object.keys(DEFAULT_ROOM_ICONS).map((roomKey) => {
                     const isSelected = form.selectedRooms.includes(roomKey);
                     return (
                       <button
@@ -556,11 +683,89 @@ export function WizardScreen() {
                         onClick={() => toggleRoom(roomKey)}
                         className={`room-card-option ${isSelected ? 'selected' : ''}`}
                       >
-                        <div className="room-icon-placeholder">{ROOM_ICONS[roomKey]}</div>
-                        <span>{roomKey === 'Entrada' ? 'Entrada / Hall' : roomKey}</span>
+                        <div className="room-icon-placeholder">{DEFAULT_ROOM_ICONS[roomKey]}</div>
+                        <span>{roomKey === 'Entrada' ? 'Entrada / recibidor' : roomKey}</span>
                       </button>
                     );
                   })}
+
+                  {/* Dynamically added custom rooms */}
+                  {customRooms.map((roomKey) => {
+                    const isSelected = form.selectedRooms.includes(roomKey);
+                    return (
+                      <button
+                        key={roomKey}
+                        type="button"
+                        onClick={() => toggleRoom(roomKey)}
+                        className={`room-card-option ${isSelected ? 'selected' : ''}`}
+                      >
+                        <div className="room-icon-placeholder">🏠</div>
+                        <span>{roomKey}</span>
+                      </button>
+                    );
+                  })}
+
+                  {/* Add Custom Room Button */}
+                  {!showCustomInput ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowCustomInput(true)}
+                      className="room-card-option"
+                      style={{ borderStyle: 'dashed', borderColor: 'var(--brand-primary)', background: 'transparent' }}
+                    >
+                      <div className="room-icon-placeholder" style={{ color: 'var(--brand-primary)' }}>
+                        <Plus size={20} />
+                      </div>
+                      <span style={{ color: 'var(--brand-primary)', fontWeight: 600 }}>Otro ambiente...</span>
+                    </button>
+                  ) : (
+                    <div 
+                      className="room-card-option" 
+                      style={{ 
+                        gridColumn: 'span 2', 
+                        display: 'flex', 
+                        flexDirection: 'column', 
+                        gap: '8px', 
+                        padding: '12px',
+                        background: 'rgba(255,255,255,0.8)' 
+                      }}
+                    >
+                      <input
+                        type="text"
+                        placeholder="Ej: Gimnasio, Playroom, Sótano..."
+                        value={customRoomName}
+                        onChange={(e) => setCustomRoomName(e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '6px 10px',
+                          fontSize: '0.85rem',
+                          border: '1px solid #D6D2CA',
+                          borderRadius: '4px',
+                        }}
+                      />
+                      <div style={{ display: 'flex', gap: '6px', width: '100%' }}>
+                        <button
+                          type="button"
+                          onClick={addCustomRoom}
+                          className="btn btn-primary"
+                          style={{ flex: 1, padding: '4px 0', fontSize: '0.75rem', borderRadius: '4px' }}
+                        >
+                          Confirmar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowCustomInput(false);
+                            setCustomRoomName('');
+                          }}
+                          className="btn btn-secondary"
+                          style={{ padding: '4px 8px', fontSize: '0.75rem', borderRadius: '4px' }}
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -588,7 +793,7 @@ export function WizardScreen() {
                             Ambiente {currentRoomIdx + 1} de {form.selectedRooms.length}
                           </span>
                           <span style={{ fontSize: '1.2rem' }}>
-                            {ROOM_ICONS[activeRoom]} <strong>{activeRoom === 'Entrada' ? 'Entrada / Hall' : activeRoom}</strong>
+                            {getRoomIcon(activeRoom)} <strong>{activeRoom === 'Entrada' ? 'Entrada / recibidor' : activeRoom}</strong>
                           </span>
                         </div>
 
@@ -694,18 +899,18 @@ export function WizardScreen() {
               </div>
             )}
 
-            {/* ── PASO 5: Condiciones Físicas del Espacio (IEQ) ── */}
+            {/* ── PASO 5: Condiciones Físicas de la Edificación y el Entorno (Clarificado) ── */}
             {wizardStep === 5 && (
               <div className="animate-[fadeIn_0.4s_ease-out]">
                 <p className="text-sm text-[#878179] mb-6">
-                  La iluminación del sol y el aislamiento sonoro impactan directamente en tu salud biológica y tu concentración.
+                  Las condiciones estructurales de <strong>toda la edificación y el entorno</strong> (como el asoleamiento de la fachada, el aislamiento del ruido de la calle, o problemas generales de humedad) determinan la base física sobre la cual habitas.
                 </p>
 
                 <div className="slider-container">
-                  <div className="slider-title">Iluminación Natural Global</div>
-                  <div className="slider-desc">"¿La casa cuenta con abundante ingreso de luz natural en el día?"</div>
+                  <div className="slider-title">Iluminación Natural Global (Edificación)</div>
+                  <div className="slider-desc">"¿La estructura general de la edificación cuenta con abundante sol durante el día?"</div>
                   <div className="slider-wrapper">
-                    <span className="text-xs text-[#878179]">1 (Mala)</span>
+                    <span className="text-xs text-[#878179]">1 (Sombría / Mala orientación)</span>
                     <input
                       type="range"
                       min="1"
@@ -723,10 +928,10 @@ export function WizardScreen() {
                 </div>
 
                 <div className="slider-container">
-                  <div className="slider-title">Confort Acústico</div>
-                  <div className="slider-desc">"¿La vivienda está aislada de ruidos molestos (tránsito, vecinos)?"</div>
+                  <div className="slider-title">Aislamiento Acústico (Edificación y Entorno)</div>
+                  <div className="slider-desc">"¿La edificación está bien aislada de los ruidos molestos del entorno (calle, tránsito, linderos)?"</div>
                   <div className="slider-wrapper">
-                    <span className="text-xs text-[#878179]">1 (Muy ruidoso)</span>
+                    <span className="text-xs text-[#878179]">1 (Muy ruidoso / Sin aislamiento)</span>
                     <input
                       type="range"
                       min="1"
@@ -744,7 +949,7 @@ export function WizardScreen() {
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">¿Detectás olor a humedad, moho o encierro en algún muro?</label>
+                  <label className="form-label">¿Detectás olor a humedad, filtraciones o moho en algún muro del edificio?</label>
                   <div className="choices-grid">
                     {[
                       { val: 'Si', label: 'Sí, detecto humedad' },
@@ -763,7 +968,7 @@ export function WizardScreen() {
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">¿Predominan materiales plásticos/sintéticos sobre los naturales (madera, lino, algodón)?</label>
+                  <label className="form-label">¿Predominan materiales sintéticos (melaminas, plásticos) sobre los naturales en los acabados generales?</label>
                   <div className="choices-grid">
                     {[
                       { val: 'Si', label: 'Sí, predomina plástico/melamina' },
@@ -921,92 +1126,188 @@ export function WizardScreen() {
               </div>
             )}
 
-            {/* ── PASO 8: Fotografías del Hábitat (Escaneo de IA Polaroid) ── */}
+            {/* ── PASO 8: Fotografías del Hábitat (Hasta 4 fotos por ambiente y escaneo de IA) ── */}
             {wizardStep === 8 && (
               <div className="animate-[fadeIn_0.4s_ease-out]">
                 <p className="text-sm text-[#878179] mb-6">
-                  Carga tus fotos para habilitar el escaneo de IA. El motor detectará la densidad de biofilia, orden y calidad lumínica real en tus ambientes seleccionados.
+                  Cargá <strong>hasta 4 fotografías por ambiente</strong> para habilitar el escaneo completo de IA. Cuantas más perspectivas brindes, más exacto será el diagnóstico visual de Gemini.
                 </p>
 
-                {/* Polaroid list for each selected room */}
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
-                  gap: '20px',
-                  marginBottom: '24px'
-                }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '40px' }}>
                   {form.selectedRooms.map((room) => {
                     const isScanning = scanningRooms[room];
                     const results = scannedRooms[room];
+                    const roomFiles = form.photoFiles[room] || [];
+                    const previews = photoPreviews[room] || [];
 
                     return (
-                      <div key={room} className="polaroid-card">
-                        <div className="polaroid-img-wrapper">
+                      <div 
+                        key={room} 
+                        style={{ 
+                          background: 'rgba(255, 255, 255, 0.4)', 
+                          border: '1px solid var(--border-color)', 
+                          borderRadius: '12px', 
+                          padding: '24px' 
+                        }}
+                      >
+                        {/* Room Header */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px' }}>
+                          <span style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-charcoal)' }}>
+                            {getRoomIcon(room)} {room === 'Entrada' ? 'Entrada / recibidor' : room}
+                          </span>
                           
-                          {/* Laser scanning line overlay */}
-                          {isScanning && <div className="laser-scanner-line" />}
-                          
-                          <img src="/bianchi_interior.png" className="polaroid-img" alt={room} style={{ opacity: isScanning ? 0.7 : 1 }} />
-                          
-                          {/* Results overlay */}
-                          {results && (
-                            <div style={{
-                              position: 'absolute',
-                              inset: 0,
-                              background: 'rgba(28,25,23,0.82)',
-                              color: 'white',
-                              display: 'flex',
-                              flexDirection: 'column',
-                              justifyContent: 'center',
-                              padding: '12px',
-                              fontSize: '0.8rem',
-                              animation: 'fadeInUp 0.3s ease-out'
-                            }}>
-                              <span style={{ fontWeight: 600, color: 'var(--brand-light)', marginBottom: '8px', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                                Escaneo Completado
-                              </span>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                                <span>Luz Natural:</span>
-                                <strong style={{ color: results.light >= 70 ? 'var(--success)' : '#D9A05B' }}>{results.light}%</strong>
-                              </div>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                                <span>Orden Visual:</span>
-                                <strong style={{ color: results.order >= 70 ? 'var(--success)' : '#B05B5B' }}>{results.order}%</strong>
-                              </div>
-                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                <span>Biofilia:</span>
-                                <strong style={{ color: results.bio >= 50 ? 'var(--success)' : '#878179' }}>{results.bio}%</strong>
-                              </div>
-                            </div>
+                          {results ? (
+                            <span style={{ fontSize: '0.72rem', color: 'var(--success)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                              ✓ Escaneado con IA ({roomFiles.length} {roomFiles.length === 1 ? 'foto' : 'fotos'})
+                            </span>
+                          ) : (
+                            <span style={{ fontSize: '0.75rem', color: '#878179' }}>
+                              Cargadas: <strong>{roomFiles.length}/4 fotos</strong>
+                            </span>
                           )}
                         </div>
 
-                        {/* Title & Scan trigger button */}
-                        <div style={{ marginTop: '12px', textAlign: 'center' }}>
-                          <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-charcoal)', display: 'block', marginBottom: '8px' }}>
-                            {ROOM_ICONS[room]} {room === 'Entrada' ? 'Entrada / Hall' : room}
-                          </span>
-                          
+                        {/* Grid of 4 Upload Slots */}
+                        <div style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))',
+                          gap: '12px',
+                          marginBottom: '20px'
+                        }}>
+                          {[0, 1, 2, 3].map((idx) => {
+                            const hasPhoto = !!roomFiles[idx];
+                            const previewUrl = previews[idx];
+                            const isInputDisabled = isScanning || !!results;
+
+                            return (
+                              <div 
+                                key={idx} 
+                                className="polaroid-card"
+                                style={{ 
+                                  padding: '8px', 
+                                  boxShadow: '0 4px 12px rgba(0,0,0,0.03)',
+                                  opacity: isScanning ? 0.7 : 1
+                                }}
+                              >
+                                {/* Hidden Input File */}
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  id={`file-input-${room}-${idx}`}
+                                  disabled={isInputDisabled}
+                                  onChange={(e) => handlePhotoUploadAtIdx(room, e.target.files?.[0], idx)}
+                                  style={{ display: 'none' }}
+                                />
+
+                                <div 
+                                  className="polaroid-img-wrapper"
+                                  style={{ 
+                                    height: '110px',
+                                    borderRadius: '6px',
+                                    background: '#fff',
+                                    border: '1px dashed #D6D2CA',
+                                    cursor: isInputDisabled ? 'default' : 'pointer'
+                                  }}
+                                  onClick={() => !isInputDisabled && document.getElementById(`file-input-${room}-${idx}`)?.click()}
+                                >
+                                  {isScanning && idx === 0 && <div className="laser-scanner-line" />}
+
+                                  {hasPhoto && previewUrl ? (
+                                    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+                                      <img 
+                                        src={previewUrl} 
+                                        alt={`${room}-${idx}`} 
+                                        style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '5px' }}
+                                      />
+                                      {/* Remove photo button */}
+                                      {!results && !isScanning && (
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handlePhotoRemoveAtIdx(room, idx);
+                                          }}
+                                          style={{
+                                            position: 'absolute',
+                                            top: '4px',
+                                            right: '4px',
+                                            background: 'rgba(239, 68, 68, 0.9)',
+                                            color: '#fff',
+                                            border: 'none',
+                                            borderRadius: '50%',
+                                            width: '20px',
+                                            height: '20px',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            cursor: 'pointer',
+                                          }}
+                                        >
+                                          <Trash2 size={10} />
+                                        </button>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#878179', padding: '6px', textAlign: 'center' }}>
+                                      <Upload size={14} style={{ marginBottom: '4px', opacity: 0.7 }} />
+                                      <span style={{ fontSize: '0.65rem' }}>Subir Foto {idx + 1}</span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        {/* Scanner & Results block */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                           {!results ? (
                             <button
                               type="button"
-                              onClick={() => simulateScan(room)}
-                              disabled={isScanning}
-                              className="btn btn-secondary"
+                              onClick={() => handleScanRoom(room)}
+                              disabled={isScanning || roomFiles.length === 0}
+                              className="btn btn-primary"
                               style={{
-                                padding: '6px 12px',
-                                fontSize: '0.7rem',
-                                borderRadius: '4px',
-                                width: '100%',
-                                gap: '4px',
+                                padding: '8px 16px',
+                                fontSize: '0.78rem',
+                                borderRadius: '6px',
+                                width: 'fit-content',
+                                gap: '6px',
+                                alignSelf: 'flex-start'
                               }}
                             >
-                              <Scan size={12} /> {isScanning ? 'Escaneando...' : 'Escanear Ambiente'}
+                              <Scan size={14} /> {isScanning ? 'Escaneando fotos en lote...' : 'Escanear fotos del ambiente'}
                             </button>
                           ) : (
-                            <span style={{ fontSize: '0.72rem', color: 'var(--success)', fontWeight: 500, display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
-                              ✓ Análisis de IA Activo
-                            </span>
+                            <div 
+                              style={{ 
+                                background: 'rgba(28,25,23,0.04)', 
+                                border: '1px solid #D6D2CA', 
+                                borderRadius: '8px', 
+                                padding: '16px', 
+                                fontSize: '0.85rem' 
+                              }}
+                            >
+                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '15px', marginBottom: '12px', borderBottom: '1px solid #D6D2CA', paddingBottom: '10px' }}>
+                                <div>
+                                  <span style={{ color: '#878179', fontSize: '0.75rem', display: 'block' }}>Luz Natural:</span>
+                                  <strong style={{ fontSize: '1rem', color: results.lightQuality >= 70 ? 'var(--success)' : '#D9A05B' }}>{results.lightQuality}%</strong>
+                                </div>
+                                <div>
+                                  <span style={{ color: '#878179', fontSize: '0.75rem', display: 'block' }}>Orden Visual:</span>
+                                  <strong style={{ fontSize: '1rem', color: results.orderScore >= 70 ? 'var(--success)' : '#B05B5B' }}>{results.orderScore}%</strong>
+                                </div>
+                                <div>
+                                  <span style={{ color: '#878179', fontSize: '0.75rem', display: 'block' }}>Biofilia:</span>
+                                  <strong style={{ fontSize: '1rem', color: results.biophiliaScore >= 50 ? 'var(--success)' : '#878179' }}>{results.biophiliaScore}%</strong>
+                                </div>
+                              </div>
+                              {results.summary && (
+                                <p style={{ color: '#44403C', fontSize: '0.8rem', lineHeight: 1.5, margin: 0, fontStyle: 'italic' }}>
+                                  💡 <strong>Resumen visual de la IA:</strong> {results.summary}
+                                </p>
+                              )}
+                            </div>
                           )}
                         </div>
                       </div>
@@ -1018,14 +1319,18 @@ export function WizardScreen() {
                   <button
                     type="button"
                     onClick={() => {
-                      updateForm({ photosUploaded: true });
-                      // Instantly scan all rooms
-                      form.selectedRooms.forEach(room => simulateScan(room));
+                      // Trigger scan for all rooms that have files uploaded and aren't scanned yet
+                      form.selectedRooms.forEach(room => {
+                        const files = form.photoFiles[room] || [];
+                        if (files.length > 0 && !scannedRooms[room]) {
+                          handleScanRoom(room);
+                        }
+                      });
                     }}
                     className="btn btn-secondary"
                     style={{ fontSize: '0.8rem', padding: '10px 20px' }}
                   >
-                    🚀 Escanear Todos los Ambientes
+                    🚀 Escanear Ambientes con Fotos Cargadas
                   </button>
                 </div>
               </div>

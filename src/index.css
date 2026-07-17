@@ -957,7 +957,8 @@ body.dark .ibbh-circle {
   color: var(--success);
 }
 
-.status-desarrollo {
+.status-desarrollo,
+.status-funcional {
   background: rgba(217, 160, 91, 0.1);
   border-color: rgba(217, 160, 91, 0.4);
   color: #b87f30;
@@ -969,7 +970,8 @@ body.dark .ibbh-circle {
   color: var(--error);
 }
 
-.status-critico {
+.status-critico,
+.status-exigente {
   background: rgba(176, 91, 91, 0.15);
   border-color: rgba(176, 91, 91, 0.5);
   color: #8b2020;

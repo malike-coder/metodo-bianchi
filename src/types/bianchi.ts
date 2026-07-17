@@ -165,8 +165,9 @@ export interface WizardFormData {
   hasInheritedObjects: string; // 'Si' | 'No' | ''
 
   // Step 7 — Photos
-  photoFiles: Record<string, File | null>;
+  photoFiles: Record<string, File[]>;
   photosUploaded: boolean;
+  scannedRooms?: Record<string, RoomAiAnalysis>;
 
   // Contextual Layers additions
   housingStatus: string; // 'Propio' | 'Alquiler'
@@ -198,6 +199,7 @@ export const DEFAULT_WIZARD_FORM: WizardFormData = {
   hasInheritedObjects: 'No',
   photoFiles: {},
   photosUploaded: false,
+  scannedRooms: {},
   housingStatus: 'Alquiler',
   budget: 'Medio',
 };

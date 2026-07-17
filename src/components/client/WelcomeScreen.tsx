@@ -64,7 +64,7 @@ export default function WelcomeScreen() {
             }}>
               Tu hogar y tu{' '}
               <em style={{ color: '#987557', fontStyle: 'italic' }}>bienestar</em>
-              <br />son inseparables
+              {' '}son inseparables
             </h1>
 
             <p style={{

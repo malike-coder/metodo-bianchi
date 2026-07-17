@@ -13,7 +13,7 @@ const consentItems = [
     id: 'photos',
     required: true,
     title: '2. Fotografías del hogar',
-    text: 'Las fotografías que compartas de los ambientes de tu hogar serán analizadas mediante algoritmos de inteligencia artificial para evaluar parámetros como calidad lumínica, orden, biofilia y armonía de color. Estas imágenes serán almacenadas de forma segura y utilizadas únicamente con fines diagnósticos. Podés solicitar su eliminación en cualquier momento.',
+    text: 'Las fotografías que compartas de los ambientes de tu hogar serán procesadas en tu sesión activa mediante algoritmos de inteligencia artificial (Gemini de Google) para evaluar parámetros como calidad lumínica, orden, biofilia y armonía de color. En esta versión del Método Bianchi®, las imágenes se analizan localmente en tu dispositivo y no son almacenadas de forma permanente en servidores externos. Podés cerrar la sesión en cualquier momento para eliminarlas de tu entorno.',
   },
   {
     id: 'results',

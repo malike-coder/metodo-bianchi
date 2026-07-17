@@ -601,10 +601,24 @@ export function buildClientFromForm(form: WizardFormData): BianchClient {
     hasPets: form.hasPets,
     desiredFeeling: form.desiredFeeling,
     selectedRooms: form.selectedRooms.length > 0 ? form.selectedRooms : ['Entrada', 'Living', 'Cocina', 'Dormitorio Principal', 'Baño', 'Escritorio', 'Patio / Balcón'],
-    photos: [
-      { id: '1', room: 'Living', url: '/bianchi_interior.png', pins: [] },
-      { id: '2', room: 'Dormitorio Principal', url: '/bianchi_interior.png', pins: [] },
-    ],
+    photos: (form.selectedRooms.length > 0 ? form.selectedRooms : ['Entrada', 'Living', 'Cocina', 'Dormitorio Principal', 'Baño', 'Escritorio', 'Patio / Balcón']).map((room, idx) => {
+      const files = form.photoFiles[room] || [];
+      const file = files[0];
+      let url = '/bianchi_interior.png';
+      if (file) {
+        try {
+          url = URL.createObjectURL(file);
+        } catch (e) {
+          console.error('Error creating object URL for photo preview', e);
+        }
+      }
+      return {
+        id: `photo-${idx}-${Date.now()}`,
+        room,
+        url,
+        pins: [],
+      };
+    }),
     dimensions,
     ibbh,
     status,

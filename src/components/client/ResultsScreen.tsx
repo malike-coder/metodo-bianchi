@@ -161,7 +161,7 @@ export function ResultsScreen() {
       </div>
 
       {/* ── 2. QUÉ ESTÁ FUNCIONANDO BIEN (🌿 Fortalezas) ────────── */}
-      <div className="glass-card" style={{ marginBottom: '45px', padding: '30px sm:padding: 40px' }}>
+      <div className="glass-card" style={{ marginBottom: '45px', padding: '30px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px' }}>
           <Sparkles size={20} style={{ color: '#5C7A63' }} />
           <h3 style={{ fontSize: '1.6rem', fontFamily: 'Cormorant Garamond, serif', fontWeight: 300, color: '#1C1917', margin: 0 }}>
@@ -172,7 +172,7 @@ export function ResultsScreen() {
           Tu casa ya cuenta con valiosos recursos espaciales y de hábitos que protegen tu mente. Estas son tus mayores virtudes actuales:
         </p>
         
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr md:grid-template-columns: repeat(3, 1fr)', gap: '20px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '20px' }}>
           {strengths.map((str, idx) => (
             <div key={idx} style={{
               background: 'rgba(92, 122, 99, 0.03)',
@@ -249,7 +249,7 @@ export function ResultsScreen() {
       <ActionPlan items={currentClient.actionItems} />
 
       {/* ── 6. EVOLUCIÓN ESPERADA (Progreso Temporal) ─────────── */}
-      <div className="glass-card" style={{ marginBottom: '45px', padding: '30px sm:padding: 40px' }}>
+      <div className="glass-card" style={{ marginBottom: '45px', padding: '30px' }}>
         <span className="text-[0.65rem] uppercase tracking-[0.3em] text-[#987557] font-semibold block mb-2">Evolución de Bienestar</span>
         <h3 style={{ fontSize: '1.6rem', fontFamily: 'Cormorant Garamond, serif', fontWeight: 300, color: '#1C1917', marginBottom: '8px' }}>
           Trayecto de Progreso Temporal
@@ -258,7 +258,7 @@ export function ResultsScreen() {
           El bienestar habitacional no es una fotografía fija, es un camino dinámico. Al aplicar las microacciones del plan, este es el trayecto proyectado para tu hogar:
         </p>
         
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr sm:grid-template-columns: repeat(3, 1fr)', gap: '20px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '20px' }}>
           
           {/* Step 1: Current status */}
           <div style={{
