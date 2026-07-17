@@ -30,7 +30,7 @@ export function RadarChart({ dimensions }: Props) {
   const rings = [20, 40, 60, 80, 100];
 
   return (
-    <div className="radar-card w-full">
+    <div className="radar-layout-wrapper">
       <div className="radar-chart-container mx-auto">
         <svg viewBox="0 0 400 400" width="100%" height="100%" id="radar-svg">
           {/* Concentric decagons */}

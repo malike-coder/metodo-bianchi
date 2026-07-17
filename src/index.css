@@ -1085,7 +1085,66 @@ body.dark .ibbh-circle {
   }
 }
 
-/* Radar and Dimension List */
+/* Radar and Dimension List Layout Wrapper */
+.radar-layout-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  width: 100%;
+}
+
+@media (min-width: 1024px) {
+  .radar-layout-wrapper {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 30px;
+  }
+
+  .radar-chart-container {
+    flex: 1.1;
+    max-width: 300px;
+    margin-bottom: 0 !important;
+  }
+
+  .dimensions-list-grid {
+    flex: 1.3;
+    margin-top: 0 !important;
+  }
+}
+
+/* Floor Plan & Drawer Layout Wrapper */
+.floor-plan-layout-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
+}
+
+@media (min-width: 1024px) {
+  .floor-plan-layout-wrapper {
+    flex-direction: row;
+    align-items: stretch;
+    gap: 30px;
+  }
+
+  .floor-plan-container {
+    flex: 1.2;
+    margin: 0 !important;
+    height: fit-content;
+  }
+
+  .room-detail-panel {
+    flex: 1.1;
+    margin: 0 !important;
+    height: auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+  }
+}
+
 .radar-card {
   display: flex;
   flex-direction: column;

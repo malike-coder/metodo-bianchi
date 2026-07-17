@@ -182,77 +182,79 @@ export function FloorPlan({ rooms }: Props) {
           </div>
         ))}
       </div>
-      <div className="floor-plan-container">
-        {BLUEPRINT_ROOMS.map((roomDef) => {
-          const isSelected = rooms.some((r) => r.startsWith(roomDef.key.split(' ')[0]));
-          const roomData = getRoomDetails(roomDef.key);
+      <div className="floor-plan-layout-wrapper">
+        <div className="floor-plan-container" style={{ margin: 0 }}>
+          {BLUEPRINT_ROOMS.map((roomDef) => {
+            const isSelected = rooms.some((r) => r.startsWith(roomDef.key.split(' ')[0]));
+            const roomData = getRoomDetails(roomDef.key);
 
-          if (isSelected) {
-            const isActive = selectedRoomName === roomDef.key;
-            return (
-              <div
-                key={roomDef.key}
-                onClick={() => setSelectedRoomName(roomDef.key)}
-                className={`floor-plan-room ${roomData.status} ${roomDef.slotClass} ${isActive ? 'active' : ''}`}
-              >
-                <div className="room-header">
-                  <span className="room-title">
-                    {roomDef.icon} {roomDef.key === 'Entrada' ? 'Entrada / Hall' : roomDef.key}
-                  </span>
-                  <span className="room-score">{roomData.score}</span>
+            if (isSelected) {
+              const isActive = selectedRoomName === roomDef.key;
+              return (
+                <div
+                  key={roomDef.key}
+                  onClick={() => setSelectedRoomName(roomDef.key)}
+                  className={`floor-plan-room ${roomData.status} ${roomDef.slotClass} ${isActive ? 'active' : ''}`}
+                >
+                  <div className="room-header">
+                    <span className="room-title">
+                      {roomDef.icon} {roomDef.key === 'Entrada' ? 'Entrada / Hall' : roomDef.key}
+                    </span>
+                    <span className="room-score">{roomData.score}</span>
+                  </div>
+                  <span className={`room-status-lbl ${roomData.status}`}>{roomData.label}</span>
                 </div>
-                <span className={`room-status-lbl ${roomData.status}`}>{roomData.label}</span>
-              </div>
-            );
-          } else {
-            return (
-              <div
-                key={roomDef.key}
-                className={`floor-plan-room unselected ${roomDef.slotClass}`}
-              >
-                <div className="room-header">
-                  <span className="room-title" style={{ color: 'var(--text-muted)' }}>
-                    {roomDef.icon} {roomDef.key === 'Entrada' ? 'Entrada / Hall' : roomDef.key}
-                  </span>
+              );
+            } else {
+              return (
+                <div
+                  key={roomDef.key}
+                  className={`floor-plan-room unselected ${roomDef.slotClass}`}
+                >
+                  <div className="room-header">
+                    <span className="room-title" style={{ color: 'var(--text-muted)' }}>
+                      {roomDef.icon} {roomDef.key === 'Entrada' ? 'Entrada / Hall' : roomDef.key}
+                    </span>
+                  </div>
+                  <span className="room-status-lbl unselected">No evaluado</span>
                 </div>
-                <span className="room-status-lbl unselected">No evaluado</span>
-              </div>
-            );
-          }
-        })}
-      </div>
-
-      {/* Room Detail Drawer Panel */}
-      {selectedRoomName && activeRoomData && (
-        <div className="room-detail-panel">
-          <div className="room-detail-title">
-            <span>{selectedRoomName === 'Entrada' ? 'Entrada / Hall' : selectedRoomName}</span>
-            <span style={{ fontSize: '1rem', color: 'var(--brand-primary)', fontWeight: 500 }}>
-              Puntaje: {activeRoomData.score}
-            </span>
-          </div>
-
-          {activeRoomData.alerts.length > 0 && (
-            <div className="alert-box">
-              <div className="alert-box-title">Alertas Detectadas</div>
-              <ul style={{ listStyleType: 'none', fontSize: '0.85rem', color: 'var(--error)', paddingLeft: 0 }}>
-                {activeRoomData.alerts.map((a, i) => (
-                  <li key={i}>⚠ {a}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          <div style={{ fontSize: '0.85rem', fontWeight: 500, textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '8px' }}>
-            Recomendaciones de Diseño
-          </div>
-          <ul className="room-rec-list" style={{ paddingLeft: '20px' }}>
-            {activeRoomData.recs.map((r, i) => (
-              <li key={i}>{r}</li>
-            ))}
-          </ul>
+              );
+            }
+          })}
         </div>
-      )}
+
+        {/* Room Detail Drawer Panel */}
+        {selectedRoomName && activeRoomData && (
+          <div className="room-detail-panel" style={{ marginTop: 0 }}>
+            <div className="room-detail-title">
+              <span>{selectedRoomName === 'Entrada' ? 'Entrada / Hall' : selectedRoomName}</span>
+              <span style={{ fontSize: '1rem', color: 'var(--brand-primary)', fontWeight: 500 }}>
+                Puntaje: {activeRoomData.score}
+              </span>
+            </div>
+
+            {activeRoomData.alerts.length > 0 && (
+              <div className="alert-box">
+                <div className="alert-box-title">Alertas Detectadas</div>
+                <ul style={{ listStyleType: 'none', fontSize: '0.85rem', color: 'var(--error)', paddingLeft: 0 }}>
+                  {activeRoomData.alerts.map((a, i) => (
+                    <li key={i}>⚠ {a}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            <div style={{ fontSize: '0.85rem', fontWeight: 500, textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '8px' }}>
+              Recomendaciones de Diseño
+            </div>
+            <ul className="room-rec-list" style={{ paddingLeft: '20px' }}>
+              {activeRoomData.recs.map((r, i) => (
+                <li key={i}>{r}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
