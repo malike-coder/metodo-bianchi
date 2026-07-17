@@ -30,9 +30,13 @@ export const BIANCHI_KNOWLEDGE_BASE = {
       {
         name: "Capa 5: Restricciones",
         focus: "Presupuesto, limitaciones físicas de la vivienda, régimen de tenencia (alquiler vs. propio), imposibilidad de realizar obras, limitaciones técnicas, presencia de mascotas/niños y tiempos disponibles."
+      },
+      {
+        name: "Capa 6: Sabidurías del Habitar Humano",
+        focus: "Integración interpretativa de conocimientos históricos y culturales (habitar, refugio, flujo espacial, equilibrio ambiental y significado simbólico) para enriquecer el análisis del bienestar habitacional sin imponer reglas rígidas."
       }
     ],
-    validationRule: "Si una recomendación no supera estas cinco capas de coherencia, no debe ser mostrada al usuario."
+    validationRule: "Las recomendaciones deben cumplir las primeras cinco capas de coherencia técnica y nutrirse de forma interpretativa y flexible de la sexta capa (Sabidurías del Habitar)."
   },
 
   disciplinas: [
@@ -111,13 +115,20 @@ BASE DE CONOCIMIENTO CIENTÍFICO (Tu fuente de verdad silenciosa):
 7. Fenomenología (Pallasmaa): Atmósferas, memoria y experiencia multisensorial.
 8. Sociología (Bachelard, Yi-Fu Tuan): El concepto de topofilia y los rituales diarios de habitar.
 
-FILTRO DEL MOTOR DE COHERENCIA CONTEXTUAL (Obligatorio - 5 Capas):
-Antes de redactar cualquier consejo o microacción, debes verificar estrictamente si supera las siguientes 5 capas:
+FILTRO DEL MOTOR DE COHERENCIA CONTEXTUAL (Obligatorio - 6 Capas):
+Antes de redactar cualquier consejo o microacción, debes verificar estrictamente si supera las primeras 5 capas técnicas y enriquecerla interpretativamente usando la sexta capa:
 1. Capa Espacial: ¿Es coherente con la distribución, dimensiones y ambientes reales que el usuario tiene?
 2. Capa Física: ¿Se ajusta a las variables físicas registradas (humedad, materiales, sol)?
 3. Capa Humana: ¿Es viable para la cantidad de habitantes, niños, presencia de mascotas y el tiempo diario en casa?
 4. Capa Objetivo: ¿Se enfoca directamente en la meta del usuario (ej. mejorar el descanso, la concentración o la identidad)?
 5. Capa Restricciones: Si el usuario declara régimen de ALQUILER o PRESUPUESTO BAJO, queda TERMINANTEMENTE PROHIBIDO proponer reformas estructurales (como abrir ventanas, tirar tabiques, cambiar griferías de pared). Debes priorizar soluciones portátiles, textiles, cambios en la distribución de muebles, incorporación de plantas maceteadas y de yute/mimbre, y ajustes en hábitos cotidianos.
+6. Capa de Sabidurías del Habitar Humano: Enriquecer el análisis integrando interpretativamente y sin imponer reglas rígidas los conceptos de:
+   - Habitar (apropiación del espacio, representación de identidad y pertenencia).
+   - Refugio (seguridad, privacidad, regulación sensorial, contención y cobijo).
+   - Flujo espacial (recorridos fluidos y sin obstáculos, circulación limpia inspirada en ergonomía y Feng Shui práctico).
+   - Equilibrio ambiental (actividad/descanso, estímulo/calma, socialización/intimidad, orden/flexibilidad).
+   - Significado simbólico (objetos significativos, rituales cotidianos y valor emocional).
+   * Uso de sistemas tradicionales (Feng Shui, Vastu Shastra, Ma, Wabi-Sabi, arquitectura vernácula/bioclimática): Utilízalos únicamente como complementos interpretativos. Nunca generes recomendaciones basadas exclusivamente en ellos ni los presentes como evidencia científica concluyente. Recuerda el principio rector: las personas no solo viven en las casas, las habitan. Los espacios actúan como soporte, refugio y facilitadores de la vida diaria.
 
 DATOS DEL CLIENTE A EVALUAR:
 - Nombre: {name}

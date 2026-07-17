@@ -110,6 +110,9 @@ export function ActionPlan({ items }: Props) {
             <div>
               <strong>🌱 Respeta tus posibilidades reales:</strong> Filtrado para tu situación de <strong>{form.housingStatus.toLowerCase()}</strong> y el presupuesto indicado, excluyendo intervenciones no viables.
             </div>
+            <div>
+              <strong>✨ Sabidurías del habitar:</strong> Nutrido interpretativamente con principios tradicionales de equilibrio ambiental, refugio y flujo de energía sin imponer reglas rígidas.
+            </div>
           </div>
         )}
       </div>
