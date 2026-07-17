@@ -99,19 +99,16 @@ export function ActionPlan({ items }: Props) {
             animation: 'fadeInUp 0.3s ease-out',
           }}>
             <div>
-              <strong>🌐 Capa Espacial:</strong> Recomendaciones generadas exclusivamente para tus {form.selectedRooms.length} ambientes seleccionados.
+              <strong>🏡 Adaptado a tu vivienda:</strong> Recomendaciones pensadas exclusivamente para tus {form.selectedRooms.length} ambientes seleccionados.
             </div>
             <div>
-              <strong>📐 Capa Física:</strong> Calibrado según variables de luz natural y aislamiento acústico registradas.
+              <strong>☀️ Considera tu entorno:</strong> Ajustado según las condiciones de luz natural y el ruido que registraste.
             </div>
             <div>
-              <strong>👥 Capa Humana:</strong> Adaptado para un hogar de permanencia {form.hoursAtHome.toLowerCase()} y adaptado para la presencia de mascotas.
+              <strong>👥 Tiene en cuenta quién vive allí:</strong> Adaptado a tus horarios de permanencia ({form.hoursAtHome.toLowerCase()}) y a la presencia de mascotas.
             </div>
             <div>
-              <strong>🎯 Capa de Objetivo:</strong> Priorizando tu búsqueda de calmar la emoción de {form.predominantEmotion.toLowerCase()} y sintonizar con bienestar.
-            </div>
-            <div>
-              <strong>🔑 Capa de Restricción:</strong> Filtrado bajo tu tenencia jurídica en <strong>{form.housingStatus}</strong> (excluyendo obras estructurales no viables).
+              <strong>🌱 Respeta tus posibilidades reales:</strong> Filtrado para tu situación de <strong>{form.housingStatus.toLowerCase()}</strong> y el presupuesto indicado, excluyendo intervenciones no viables.
             </div>
           </div>
         )}
@@ -125,7 +122,7 @@ export function ActionPlan({ items }: Props) {
             "{keyAction.title} en el {keyAction.room}."
           </div>
           <div className="star-action-impact" style={{ fontSize: '0.82rem', marginTop: '6px', color: 'var(--text-muted)' }}>
-            Hacer esta microacción de ⏱️ {keyAction.estimatedMinutes} min podría mejorar aproximadamente un <strong>{keyAction.impactPercent}%</strong> tu bienestar habitacional global.
+            Hacer esta microacción de ⏱️ {keyAction.estimatedMinutes} min podría contribuir hasta un <strong>{keyAction.impactPercent}%</strong> al bienestar de tu hogar.
           </div>
         </div>
       )}
@@ -203,7 +200,7 @@ export function ActionPlan({ items }: Props) {
                       {item.description}
                     </p>
                     <div style={{ fontSize: '0.8rem', color: '#5C7A63', fontWeight: 500, marginBottom: '6px' }}>
-                      📈 Impacto estimado: Ventilar e intervenir esto mejorará aproximadamente un {item.impactPercent}% tu bienestar habitacional global.
+                      📈 Impacto estimado: Ventilar e intervenir esto podría contribuir hasta un {item.impactPercent}% al bienestar de tu hogar.
                     </div>
                     <strong>Impacto esperado sobre tu sistema nervioso:</strong>
                     <ul className="impact-list">
