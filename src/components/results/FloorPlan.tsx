@@ -168,6 +168,20 @@ export function FloorPlan({ rooms }: Props) {
 
   return (
     <div style={{ width: '100%' }}>
+      {/* Color Legend */}
+      <div style={{ display: 'flex', gap: '16px', marginBottom: '12px', flexWrap: 'wrap' }}>
+        {[
+          { color: '#6E8E75', dot: '🟢', label: 'Fortaleza' },
+          { color: '#D9A05B', dot: '🟡', label: 'Oportunidad' },
+          { color: '#B05B5B', dot: '🔴', label: 'Atención prioritaria' },
+          { color: '#878179', dot: '⚪', label: 'No evaluado' },
+        ].map((item) => (
+          <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+            <span>{item.dot}</span>
+            <span>{item.label}</span>
+          </div>
+        ))}
+      </div>
       <div className="floor-plan-container">
         {BLUEPRINT_ROOMS.map((roomDef) => {
           const isSelected = rooms.some((r) => r.startsWith(roomDef.key.split(' ')[0]));

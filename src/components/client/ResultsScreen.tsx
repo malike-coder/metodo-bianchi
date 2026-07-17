@@ -13,6 +13,7 @@ import type { DimensionScores } from '../../types/bianchi';
 export function ResultsScreen() {
   const { currentClient, setClientScreen, resetForm } = useAppStore();
   const [showBibliography, setShowBibliography] = useState(false);
+  const [showEvolucion, setShowEvolucion] = useState(false);
 
   if (!currentClient) {
     return null;
@@ -33,7 +34,7 @@ export function ResultsScreen() {
     'regenerativo': 'Hábitat Regenerativo',
     'saludable': 'Hábitat Saludable',
     'funcional': 'Hábitat Funcional',
-    'vulnerable': 'Hábitat Vulnerable',
+    'vulnerable': 'Hábitat en Transición',
     'exigente': 'Hábitat Exigente',
   };
 
@@ -147,10 +148,10 @@ export function ResultsScreen() {
             <span className="ibbh-over-label">Puntaje de bienestar sobre 100</span>
             <span className="ibbh-over-100" style={{ fontStyle: 'normal' }}>
               {currentClient.ibbh >= 75
-                ? '¡Tu hogar es un ecosistema de calma y restauración!'
+                ? '\u00a1Tu hogar te está cuidando bien!'
                 : currentClient.ibbh >= 60
-                ? 'Tu espacio tiene buenas bases. Hay margen para acompañarte mejor.'
-                : 'Detectamos oportunidades para que tu hogar te ayude más en tu descanso y vida diaria.'}
+                ? 'Tu espacio tiene una base sólida. Hay margen real de mejora.'
+                : 'Encontramos oportunidades concretas para que tu casa te cuide mejor.'}
             </span>
           </div>
 
@@ -247,80 +248,64 @@ export function ResultsScreen() {
 
       {/* ── 4 & 5. PLAN DE ACCIÓN (La Joya + Collapsibles) ─────── */}
       <ActionPlan items={currentClient.actionItems} />
+      {/* ── 6. EVOLUCIÓN ESPERADA (Colapsable) ────────────────── */}
+      <div style={{ marginBottom: '45px' }}>
+        <button
+          type="button"
+          onClick={() => setShowEvolucion(!showEvolucion)}
+          style={{
+            display: 'flex', alignItems: 'center', gap: '10px', background: 'none',
+            border: '1px solid var(--border-color)', borderRadius: '8px', padding: '14px 20px',
+            cursor: 'pointer', width: '100%', textAlign: 'left', fontFamily: 'Jost, sans-serif',
+            color: 'var(--text-charcoal)', fontSize: '0.9rem', fontWeight: 500,
+          }}
+        >
+          <span style={{ fontSize: '1rem' }}>{showEvolucion ? '▼' : '▶'}</span>
+          📈 Ver tu trayecto proyectado de mejora
+        </button>
 
-      {/* ── 6. EVOLUCIÓN ESPERADA (Progreso Temporal) ─────────── */}
-      <div className="glass-card" style={{ marginBottom: '45px', padding: '30px' }}>
-        <span className="text-[0.65rem] uppercase tracking-[0.3em] text-[#987557] font-semibold block mb-2">Evolución de Bienestar</span>
-        <h3 style={{ fontSize: '1.6rem', fontFamily: 'Cormorant Garamond, serif', fontWeight: 300, color: '#1C1917', marginBottom: '8px' }}>
-          Trayecto de Progreso Temporal
-        </h3>
-        <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', marginBottom: '24px', lineHeight: 1.45 }}>
-          El bienestar habitacional no es una fotografía fija, es un camino dinámico. Al aplicar las microacciones del plan, este es el trayecto proyectado para tu hogar:
-        </p>
-        
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '20px' }}>
-          
-          {/* Step 1: Current status */}
-          <div style={{
-            background: 'rgba(255, 255, 255, 0.4)',
-            border: '1px solid var(--border-color)',
-            borderRadius: '8px',
-            padding: '20px',
-            position: 'relative'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-              <span style={{ fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--brand-primary)' }}>Hoy (Diagnóstico)</span>
-              <strong style={{ fontSize: '1.25rem', color: '#B05B5B' }}>{currentClient.ibbh}</strong>
+        {showEvolucion && (
+          <div className="glass-card" style={{ marginTop: '12px', padding: '28px' }}>
+            <span className="text-[0.65rem] uppercase tracking-[0.3em] text-[#987557] font-semibold block mb-2">Proyección orientativa</span>
+            <h3 style={{ fontSize: '1.5rem', fontFamily: 'Cormorant Garamond, serif', fontWeight: 300, color: '#1C1917', marginBottom: '8px' }}>
+              Trayecto de Progreso
+            </h3>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '20px', lineHeight: 1.45 }}>
+              El bienestar habitacional es un camino. Al aplicar las microacciones del plan, este es el trayecto posible para tu hogar:
+            </p>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '16px' }}>
+              <div style={{ background: 'rgba(255,255,255,0.4)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '18px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <span style={{ fontSize: '0.68rem', fontWeight: 600, textTransform: 'uppercase', color: 'var(--brand-primary)' }}>Hoy</span>
+                  <strong style={{ fontSize: '1.2rem', color: '#B05B5B' }}>{currentClient.ibbh}</strong>
+                </div>
+                <h4 style={{ margin: '0 0 4px 0', fontSize: '0.95rem', fontWeight: 600 }}>{statusLabelText}</h4>
+                <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: 0, lineHeight: 1.4 }}>Estado de partida relevado.</p>
+              </div>
+              <div style={{ background: 'rgba(255,255,255,0.4)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '18px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <span style={{ fontSize: '0.68rem', fontWeight: 600, textTransform: 'uppercase', color: 'var(--brand-primary)' }}>A los 3 meses</span>
+                  <strong style={{ fontSize: '1.2rem', color: '#D9A05B' }}>{Math.min(90, currentClient.ibbh + 12)}</strong>
+                </div>
+                <h4 style={{ margin: '0 0 4px 0', fontSize: '0.95rem', fontWeight: 600 }}>Hábitat Funcional</h4>
+                <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: 0, lineHeight: 1.4 }}>Acciones rápidas integradas. Menos desorden, más luz.</p>
+              </div>
+              <div style={{ background: 'rgba(255,255,255,0.4)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '18px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <span style={{ fontSize: '0.68rem', fontWeight: 600, textTransform: 'uppercase', color: 'var(--brand-primary)' }}>A los 12 meses</span>
+                  <strong style={{ fontSize: '1.2rem', color: '#5C7A63' }}>{Math.min(100, Math.max(76, currentClient.ibbh + 22))}</strong>
+                </div>
+                <h4 style={{ margin: '0 0 4px 0', fontSize: '0.95rem', fontWeight: 600 }}>Hábitat Saludable</h4>
+                <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: 0, lineHeight: 1.4 }}>Hábitos del habitar integrados y consolidados.</p>
+              </div>
             </div>
-            <h4 style={{ margin: '0 0 6px 0', fontSize: '1rem', fontWeight: 600 }}>{statusLabelText}</h4>
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0, lineHeight: 1.4 }}>Estado inicial relevado. Se detectaron tus bloqueos de diseño actuales.</p>
-          </div>
 
-          {/* Step 2: 3 Months status */}
-          <div style={{
-            background: 'rgba(255, 255, 255, 0.4)',
-            border: '1px solid var(--border-color)',
-            borderRadius: '8px',
-            padding: '20px'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-              <span style={{ fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--brand-primary)' }}>A los 3 meses</span>
-              <strong style={{ fontSize: '1.25rem', color: '#D9A05B' }}>{Math.min(90, currentClient.ibbh + 12)}</strong>
+            <div style={{ background: 'rgba(92,122,99,0.03)', border: '1px solid rgba(92,122,99,0.15)', borderRadius: '6px', padding: '12px 16px', marginTop: '18px', fontSize: '0.82rem', color: '#5C7A63', fontWeight: 500, textAlign: 'center' }}>
+              📈 Con microacciones diarias de 5–10 minutos, tu IBBH podría mejorar entre 15 y 22 puntos.
             </div>
-            <h4 style={{ margin: '0 0 6px 0', fontSize: '1rem', fontWeight: 600 }}>Hábitat Funcional</h4>
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0, lineHeight: 1.4 }}>Aplicando acciones del día y la semana. Menor desorden y descompresión lumínica activa.</p>
           </div>
-
-          {/* Step 3: Annual status */}
-          <div style={{
-            background: 'rgba(255, 255, 255, 0.4)',
-            border: '1px solid var(--border-color)',
-            borderRadius: '8px',
-            padding: '20px'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-              <span style={{ fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--brand-primary)' }}>A los 12 meses</span>
-              <strong style={{ fontSize: '1.25rem', color: '#5C7A63' }}>{Math.min(100, Math.max(76, currentClient.ibbh + 22))}</strong>
-            </div>
-            <h4 style={{ margin: '0 0 6px 0', fontSize: '1rem', fontWeight: 600 }}>Hábitat Saludable</h4>
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0, lineHeight: 1.4 }}>Hábitos del habitar integrados (ventilación, biofilia, calma nocturna consolidada).</p>
-          </div>
-
-        </div>
-
-        <div style={{
-          background: 'rgba(92,122,99,0.03)',
-          border: '1px solid rgba(92,122,99,0.15)',
-          borderRadius: '6px',
-          padding: '12px 16px',
-          marginTop: '20px',
-          fontSize: '0.85rem',
-          color: '#5C7A63',
-          fontWeight: 500,
-          textAlign: 'center'
-        }}>
-          📈 Con microacciones diarias de 5-10 minutos, tu mejora acumulada estimada es de +15 a +22 puntos de IBBH.
-        </div>
+        )}
       </div>
 
       {/* ── Call to Action Box ─────────────────────────────── */}

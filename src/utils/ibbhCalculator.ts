@@ -87,8 +87,8 @@ export function getStatusConfig(status: IbbhStatus): StatusConfig {
       badgeClass: 'bg-amber-50 border-amber-300 text-amber-700',
     },
     vulnerable: {
-      label: 'Hábitat Vulnerable',
-      message: 'Detectamos oportunidades para que tu hogar te apoye mejor en tu descanso y vida cotidiana. Algunos espacios podrían estar pidiéndote más esfuerzo del necesario.',
+      label: 'Hábitat en Transición',
+      message: 'Tu casa está en un proceso de cambio. Algunos ambientes te piden más energía de la que te devuelven, pero eso tiene solución. Con pequeños ajustes, este espacio puede empezar a cuidarte de verdad.',
       colorClass: 'text-bianchi-terra',
       badgeClass: 'bg-red-50 border-red-300 text-red-700',
     },
@@ -150,19 +150,25 @@ export function calculateDimensions(form: WizardFormData): DimensionScores {
   };
 }
 
-// ── Personalized Narrative ───────────────────────────────────
+// ── Personalized Narrative ───────────────────────────────────────
+// Note: impactPercent in action items is displayed as "podría contribuir hasta X%"
+// to avoid deterministic claims. See ResultsScreen.tsx for display logic.
 export function generateNarrative(form: WizardFormData): string {
-  const firstName = form.name.split(' ')[0] || 'tu hogar';
-  const feeling = form.desiredFeeling ? `Anhelás sentir ${form.desiredFeeling.toLowerCase()}` : 'Buscás un espacio de refugio';
-  
+  const firstName = form.name.split(' ')[0] || 'vos';
+  const feeling = form.desiredFeeling
+    ? `Querés sentir ${form.desiredFeeling.toLowerCase()}`
+    : 'Buscás un espacio que te cuide';
+
   const narrativeMap: Record<string, string> = {
-    Separacion: `${firstName}, tu casa tiene hoy un rol vital: ser tu refugio en un proceso de cambio. ${feeling}. Detectamos que pasás mucho tiempo en ella, y eso la convierte en el espacio más importante para tu recuperación emocional. Vamos a identificar qué ambientes te drenan y cómo transformarlos en fuentes de calma y contención.`,
-    Duelo: `${firstName}, en momentos de duelo el hogar puede ser un gran aliado o una fuente de malestar sutil. ${feeling}. Tu espacio debe convertirse en un santuario de calma y contención. Trabajaremos para que cada ambiente de tu hogar te proteja y sostenga.`,
-    Mudanza: `${firstName}, los primeros meses en un nuevo hogar son clave para crear un vínculo saludable con el espacio. ${feeling}. Este diagnóstico te ayudará a entender qué ajustes necesita tu casa para que empiece a sentirse verdaderamente tuya.`,
-    NuevaEtapa: `${firstName}, las transiciones vitales exigen que el entorno acompañe el cambio. ${feeling}. Tu hogar debe actualizarse para reflejar quién sos hoy. Este diagnóstico es el primer paso para alinear tu espacio con tu nueva identidad.`,
-    Ninguno: `${firstName}, a veces las incomodidades del hogar son tan sutiles que las normalizamos sin darnos cuenta. ${feeling}. Este diagnóstico está diseñado para revelar lo que a primera vista no se ve: cómo tu casa influye en tu nivel de energía, descanso y bienestar cotidiano.`,
+    Separacion: `${firstName}, tu casa hoy tiene una tarea muy concreta: ser tu refugio. ${feeling}. No siempre es fácil habitar un espacio en el que todo está cambiando, pero los ambientes que te rodean pueden ayudarte mucho más de lo que creés. Vamos a ver juntos dónde están las fricciones y cómo resolverlas.`,
+    Duelo: `${firstName}, en momentos de pérdida el espacio que habitamos puede contenernos o puede pesarnos. ${feeling}. Tu casa puede ser un lugar de calma real. Miremos qué está sumando y qué está restando energía sin que te des cuenta.`,
+    Mudanza: `${firstName}, un lugar nuevo tarda un tiempo en sentirse como propio. ${feeling}. Este diagnóstico te ayuda a entender qué ajustes necesitás para que tu casa empiece a cuidarte de verdad, no solo a funcionar.`,
+    NuevaEtapa: `${firstName}, cuando la vida cambia, el espacio también necesita actualizarse. ${feeling}. Tu hogar tiene que acompañar quién sos ahora, no reflejar quién eras. Empecemos por ahí.`,
+    Ninguno: `${firstName}, a veces las incomodidades del hogar son tan sutiles que las terminamos naturalizando. ${feeling}. Este diagnóstico está diseñado para revelar, con cuidado, cómo tu espacio actual impacta en tu energía y descanso cotidiano.`,
   };
-  return narrativeMap[form.transition] ?? `${firstName}, tu hogar es mucho más que un espacio físico: es el sistema que regula tu energía, tu descanso y tu estado emocional. Este diagnóstico revela cómo cada ambiente interactúa con tu sistema nervioso.`;
+
+  return narrativeMap[form.transition] ??
+    `${firstName}, tu hogar es mucho más que un espacio físico. Es el sistema silencioso que regula cómo dormís, cómo te regulás y cómo salís al mundo cada día. Miremos juntos qué está pasando en cada ambiente.`;
 }
 
 // ── Dynamic Contextual Action Recommendations Engine ────────
