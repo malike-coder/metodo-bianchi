@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAppStore } from '../../store/useAppStore';
-import { getStatusConfig } from '../../utils/ibbhCalculator';
+import { getStatusConfig, getIbbhStatus } from '../../utils/ibbhCalculator';
 import { Button } from '../ui/Button';
 import { RadarChart } from '../results/RadarChart';
 import { FloorPlan } from '../results/FloorPlan';
@@ -11,7 +11,7 @@ import { Download, RefreshCw, Sparkles, BookOpen } from 'lucide-react';
 import type { DimensionScores } from '../../types/bianchi';
 
 export function ResultsScreen() {
-  const { currentClient, setClientScreen, resetForm } = useAppStore();
+  const { currentClient, setClientScreen, resetForm, completedActionIds } = useAppStore();
   const [showBibliography, setShowBibliography] = useState(false);
   const [showEvolucion, setShowEvolucion] = useState(false);
 
@@ -19,7 +19,13 @@ export function ResultsScreen() {
     return null;
   }
 
-  const statusConfig = getStatusConfig(currentClient.status);
+  // Calculate dynamic IBBH score based on completed actions
+  const completedItems = currentClient.actionItems.filter(item => completedActionIds.includes(item.id));
+  const totalImpact = completedItems.reduce((acc, item) => acc + (item.impactPercent || 5), 0);
+  const dynamicIbbh = Math.min(100, currentClient.ibbh + totalImpact);
+  const dynamicStatus = getIbbhStatus(dynamicIbbh);
+
+  const statusConfig = getStatusConfig(dynamicStatus);
   const firstName = currentClient.name.split(' ')[0];
 
   const handlePrint = () => window.print();
@@ -38,8 +44,8 @@ export function ResultsScreen() {
     'exigente': 'Hábitat Exigente',
   };
 
-  const statusBadgeClass = `ibbh-status-badge status-${currentClient.status}`;
-  const statusLabelText = statusLabels[currentClient.status] || 'Hábitat Funcional';
+  const statusBadgeClass = `ibbh-status-badge status-${dynamicStatus}`;
+  const statusLabelText = statusLabels[dynamicStatus] || 'Hábitat Funcional';
 
   // Helper to extract 3 dynamic strengths based on dimension scores
   const getHomeStrengths = (dimensions: DimensionScores) => {
@@ -47,8 +53,8 @@ export function ResultsScreen() {
     
     if (dimensions['Calidad Ambiental'] >= 60) {
       list.push({
-        title: 'Calidad del Ambiente Físico',
-        desc: 'Tu hogar cuenta con buenas bases de luz y confort acústico que protegen tu energía diaria.'
+        title: 'Tu casa tiene buena luz y condiciones que hacen más agradable el día a día',
+        desc: 'Tenés buenas bases de iluminación natural y protección contra ruidos molestos, lo que ayuda a sostener tu energía diaria.'
       });
     } else {
       list.push({
@@ -59,37 +65,37 @@ export function ResultsScreen() {
 
     if (dimensions['Identidad y Pertenencia'] >= 60) {
       list.push({
-        title: 'Representación de Identidad',
-        desc: 'Tus ambientes reflejan quién sos hoy y te brindan un anclaje emocional y de arraigo.'
+        title: 'Tu casa refleja quién sos hoy',
+        desc: 'Tus ambientes tienen detalles y objetos que te pertenecen emocionalmente, sirviendo como un anclaje de seguridad y pertenencia.'
       });
     }
 
     if (dimensions['Orden'] >= 60) {
       list.push({
-        title: 'Orden Sostenible',
-        desc: 'La organización actual de tus objetos reduce la fatiga visual inconsciente en tus rutinas.'
+        title: 'La organización de tu casa te ayuda a sentir mayor tranquilidad visual',
+        desc: 'La disposición de las cosas reduce el desorden a la vista, dándole un respiro diario a tu atención sin sobrecargarte.'
       });
     }
 
     if (dimensions['Biofilia'] >= 60) {
       list.push({
-        title: 'Conexión Biofílica',
-        desc: 'La presencia de plantas y visuales al exterior ayudan activamente a tu relajación mental.'
+        title: 'La presencia de naturaleza te ayuda a relajar la mente',
+        desc: 'Las plantas de tu casa y las vistas que tenés hacia el exterior ayudan a que tu cuerpo regule el estrés de forma natural.'
       });
     }
 
     if (dimensions['Funcionalidad'] >= 60) {
       list.push({
-        title: 'Circulación Confortable',
-        desc: 'Los recorridos despejados entre ambientes facilitan el movimiento diario sin esfuerzo.'
+        title: 'Los recorridos de tu casa son cómodos y fáciles de transitar',
+        desc: 'Los pasos libres de obstáculos entre los ambientes te permiten moverte sin esfuerzo en tus rutinas cotidianas.'
       });
     }
 
     // Default fallbacks to ensure we always have exactly 3 strengths
     if (list.length < 3) {
       list.push({
-        title: 'Oasis de Pausa',
-        desc: 'Tu espacio cuenta con un gran potencial de transformación a través de microacciones sencillas.'
+        title: 'Un rincón de pausa con gran potencial',
+        desc: 'Tu casa cuenta con espacios ideales que, mediante pequeños ajustes, pueden convertirse en verdaderos refugios de descanso.'
       });
     }
 
@@ -139,7 +145,7 @@ export function ResultsScreen() {
           
           <div className="ibbh-circle">
             <div className="ibbh-circle-ring"></div>
-            <span className="ibbh-number">{currentClient.ibbh}</span>
+            <span className="ibbh-number">{dynamicIbbh}</span>
             <span className="ibbh-label">IBBH</span>
           </div>
 
@@ -147,9 +153,9 @@ export function ResultsScreen() {
             <div className={statusBadgeClass}>{statusLabelText}</div>
             <span className="ibbh-over-label">Puntaje de bienestar sobre 100</span>
             <span className="ibbh-over-100" style={{ fontStyle: 'normal' }}>
-              {currentClient.ibbh >= 75
-                ? '\u00a1Tu hogar te está cuidando bien!'
-                : currentClient.ibbh >= 60
+              {dynamicIbbh >= 75
+                ? '¡Tu hogar te está cuidando bien!'
+                : dynamicIbbh >= 60
                 ? 'Tu espacio tiene una base sólida. Hay margen real de mejora.'
                 : 'Encontramos oportunidades concretas para que tu casa te cuide mejor.'}
             </span>
@@ -212,7 +218,7 @@ export function ResultsScreen() {
         {/* Left Column: Radar Chart */}
         <div className="glass-card radar-card">
           <h3 style={{ fontSize: '1.4rem', marginBottom: '14px', fontWeight: 500, fontFamily: 'Jost, sans-serif', letterSpacing: '0.02em', width: '100%', textAlign: 'left' }}>
-            Análisis Dimensional
+            ¿Qué encontramos?
           </h3>
           <RadarChart dimensions={currentClient.dimensions} />
           
@@ -236,7 +242,7 @@ export function ResultsScreen() {
         {/* Right Column: Architectural Floor Plan */}
         <div className="glass-card habitat-map-card">
           <h3 style={{ fontSize: '1.4rem', fontWeight: 500, fontFamily: 'Jost, sans-serif', letterSpacing: '0.02em', width: '100%', textAlign: 'left' }}>
-            Plano Diagnóstico
+            Tu mapa de la casa
           </h3>
           <p className="habitat-intro">
             Explorá el mapa interactivo de tu casa. Hacé clic en cualquier ambiente para analizar sus bloqueos y recomendaciones específicas.
@@ -278,7 +284,7 @@ export function ResultsScreen() {
               <div style={{ background: 'rgba(255,255,255,0.4)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '18px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                   <span style={{ fontSize: '0.68rem', fontWeight: 600, textTransform: 'uppercase', color: 'var(--brand-primary)' }}>Hoy</span>
-                  <strong style={{ fontSize: '1.2rem', color: '#B05B5B' }}>{currentClient.ibbh}</strong>
+                  <strong style={{ fontSize: '1.2rem', color: '#B05B5B' }}>{dynamicIbbh}</strong>
                 </div>
                 <h4 style={{ margin: '0 0 4px 0', fontSize: '0.95rem', fontWeight: 600 }}>{statusLabelText}</h4>
                 <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: 0, lineHeight: 1.4 }}>Estado de partida relevado.</p>
@@ -286,7 +292,7 @@ export function ResultsScreen() {
               <div style={{ background: 'rgba(255,255,255,0.4)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '18px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                   <span style={{ fontSize: '0.68rem', fontWeight: 600, textTransform: 'uppercase', color: 'var(--brand-primary)' }}>A los 3 meses</span>
-                  <strong style={{ fontSize: '1.2rem', color: '#D9A05B' }}>{Math.min(90, currentClient.ibbh + 12)}</strong>
+                  <strong style={{ fontSize: '1.2rem', color: '#D9A05B' }}>{Math.min(90, dynamicIbbh + 12)}</strong>
                 </div>
                 <h4 style={{ margin: '0 0 4px 0', fontSize: '0.95rem', fontWeight: 600 }}>Hábitat Funcional</h4>
                 <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: 0, lineHeight: 1.4 }}>Acciones rápidas integradas. Menos desorden, más luz.</p>
@@ -294,7 +300,7 @@ export function ResultsScreen() {
               <div style={{ background: 'rgba(255,255,255,0.4)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '18px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                   <span style={{ fontSize: '0.68rem', fontWeight: 600, textTransform: 'uppercase', color: 'var(--brand-primary)' }}>A los 12 meses</span>
-                  <strong style={{ fontSize: '1.2rem', color: '#5C7A63' }}>{Math.min(100, Math.max(76, currentClient.ibbh + 22))}</strong>
+                  <strong style={{ fontSize: '1.2rem', color: '#5C7A63' }}>{Math.min(100, Math.max(76, dynamicIbbh + 22))}</strong>
                 </div>
                 <h4 style={{ margin: '0 0 4px 0', fontSize: '0.95rem', fontWeight: 600 }}>Hábitat Saludable</h4>
                 <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: 0, lineHeight: 1.4 }}>Hábitos del habitar integrados y consolidados.</p>
@@ -346,7 +352,7 @@ export function ResultsScreen() {
         lineHeight: 1.6
       }}>
         <p style={{ margin: '0 0 12px 0' }}>
-          "Tu hogar no está siendo juzgado. Está siendo comprendido. Toda vivienda tiene potencial para mejorar su capacidad de cuidar a quienes la habitan."
+          "No encontramos un problema. Encontramos una oportunidad para que tu casa te cuide mejor. No buscamos casas perfectas. Buscamos casas que acompañen mejor la vida cotidiana."
         </p>
         <strong style={{ color: 'var(--brand-primary)', fontSize: '1.05rem', fontFamily: 'Jost, sans-serif', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginTop: '14px', fontStyle: 'normal' }}>
           El objetivo no es tener una casa perfecta. El objetivo es tener una casa que te ayude a vivir mejor.

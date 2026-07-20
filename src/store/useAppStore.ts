@@ -20,6 +20,7 @@ interface AppState {
   currentClient: BianchClient;
   activeProfClientIndex: number;
   profClients: BianchClient[];
+  completedActionIds: string[];
 
   // ── Actions ───────────────────────────────────
   setActiveView: (view: AppView) => void;
@@ -30,6 +31,7 @@ interface AppState {
   resetForm: () => void;
   setCurrentClient: (client: BianchClient) => void;
   setActiveProfClient: (index: number) => void;
+  toggleActionComplete: (id: string) => void;
 }
 
 export const useAppStore = create<AppState>()(
@@ -43,20 +45,27 @@ export const useAppStore = create<AppState>()(
       currentClient: mockClients[0],
       activeProfClientIndex: 0,
       profClients: mockClients,
+      completedActionIds: [],
 
       setActiveView: (view) => set({ activeView: view }),
       setClientScreen: (screen) => set({ clientScreen: screen }),
       setWizardStep: (step) => set({ wizardStep: step }),
       toggleDarkMode: () => set((s) => ({ isDarkMode: !s.isDarkMode })),
       updateForm: (data) => set((s) => ({ form: { ...s.form, ...data } })),
-      resetForm: () => set({ form: DEFAULT_WIZARD_FORM, wizardStep: 1 }),
+      resetForm: () => set({ form: DEFAULT_WIZARD_FORM, wizardStep: 1, completedActionIds: [] }),
       setCurrentClient: (client) => set({ currentClient: client }),
       setActiveProfClient: (index) => set({ activeProfClientIndex: index }),
+      toggleActionComplete: (id) => set((s) => ({
+        completedActionIds: s.completedActionIds.includes(id)
+          ? s.completedActionIds.filter((cid) => cid !== id)
+          : [...s.completedActionIds, id]
+      })),
     }),
     {
       name: 'bianchi-app-state',
       partialize: (state) => ({
         isDarkMode: state.isDarkMode,
+        completedActionIds: state.completedActionIds,
         // Don't persist form or client data in Phase 1
       }),
     }

@@ -1,7 +1,148 @@
-import type { WizardFormData, BianchClient, IbbhStatus, DimensionScores, ActionItem, ActionTimeframe } from '../types/bianchi';
+import type { WizardFormData, BianchClient, IbbhStatus, DimensionScores, ActionItem, ActionTimeframe, RoomEvaluation } from '../types/bianchi';
+
+interface NumericRoomEval {
+  feel: number;
+  light: number;
+  order: number;
+  plants: number;
+}
+
+export function getNumericRoomEval(ev: RoomEvaluation | undefined): NumericRoomEval {
+  if (!ev) return { feel: 3, light: 3, order: 3, plants: 3 };
+
+  let lNum = 3;
+  if (ev.light === 'Muy abundante') lNum = 5;
+  else if (ev.light === 'Suficiente') lNum = 4;
+  else if (ev.light === 'Escasa') lNum = 2;
+  else if (ev.light === 'Casi no hay') lNum = 1;
+  else if (typeof (ev.light as any) === 'number') lNum = ev.light as any;
+
+  let oNum = 3;
+  if (ev.order === 'Fácil de sostener') oNum = 5;
+  else if (ev.order === 'Se desorganiza fácil') oNum = 3;
+  else if (ev.order === 'Caótico') oNum = 1;
+  else if (typeof (ev.order as any) === 'number') oNum = ev.order as any;
+
+  let pNum = 3;
+  if (ev.plants === 'Muchas') pNum = 5;
+  else if (ev.plants === 'Pocas') pNum = 3;
+  else if (ev.plants === 'Ninguna') pNum = 1;
+
+  return {
+    feel: ev.feel || 3,
+    light: lNum,
+    order: oNum,
+    plants: pNum
+  };
+}
+
+export function preprocessForm(form: WizardFormData): WizardFormData {
+  const p = { ...form };
+
+  // 1. Map Emotional representation
+  if (form.homeRepresentation && form.homeRepresentation.includes('Refleja quién sos')) p.slideEmotional1 = 5;
+  else if (form.homeRepresentation && form.homeRepresentation.includes('Te representa en parte')) p.slideEmotional1 = 4;
+  else if (form.homeRepresentation && form.homeRepresentation.includes('ya no acompaña')) p.slideEmotional1 = 2;
+  else if (form.homeRepresentation && form.homeRepresentation.includes('dejó de representar')) p.slideEmotional1 = 1;
+
+  // 2. Map Arrival feeling
+  if (form.arrivalFeeling && form.arrivalFeeling.includes('bajar un cambio')) p.slideEmotional2 = 5;
+  else if (form.arrivalFeeling && form.arrivalFeeling.includes('Me gusta volver')) p.slideEmotional2 = 4;
+  else if (form.arrivalFeeling && form.arrivalFeeling.includes('sigo con mi día')) p.slideEmotional2 = 3;
+  else if (form.arrivalFeeling && form.arrivalFeeling.includes('tengo que hacer')) p.slideEmotional2 = 2;
+  else if (form.arrivalFeeling && form.arrivalFeeling.includes('sobrepasado')) p.slideEmotional2 = 1;
+
+  // 3. Map Predominant emotion
+  if (form.predominantSensations && form.predominantSensations.length > 0) {
+    const mainS = form.predominantSensations[0];
+    if (['Calma', 'Refugio', 'Bienestar', 'Seguridad', 'Alegría'].includes(mainS)) {
+      p.predominantEmotion = 'Calma';
+    } else if (['Desorden', 'Indiferencia'].includes(mainS)) {
+      p.predominantEmotion = 'Incomodidad';
+    } else {
+      p.predominantEmotion = 'Agobio';
+    }
+  }
+
+  // 4. Map desired feeling
+  if (form.desiredFeelings && form.desiredFeelings.length > 0) {
+    p.desiredFeeling = form.desiredFeelings.join(', ').replace(/🌿 |😴 |😊 |💪 |👨👩👧 |🎨 |📦 |🏡 |💼 |✨ /g, '');
+  }
+
+  // 5. Map transitions
+  if (form.transitions && form.transitions.length > 0) {
+    p.transition = form.transitions[0];
+  }
+
+  // 6. Map room evaluations to numeric ratings for downstream math
+  const roomKeys = Object.keys(form.roomEvaluations);
+  let sumLight = 0;
+  let sumNoise = 0;
+  let sumMoisture = 0;
+  let sumPlants = 0;
+  let sumViews = 0;
+  let sumOrder = 0;
+  let sumCirc = 0;
+
+  roomKeys.forEach((room) => {
+    const ev = form.roomEvaluations[room];
+    if (!ev) return;
+    
+    // Light
+    if (ev.light === 'Muy abundante') sumLight += 5;
+    else if (ev.light === 'Suficiente') sumLight += 4;
+    else if (ev.light === 'Escasa') sumLight += 2;
+    else sumLight += 1;
+
+    // Noise
+    if (ev.noise === 'Silencioso') sumNoise += 5;
+    else if (ev.noise === 'Moderado') sumNoise += 3;
+    else sumNoise += 1;
+
+    // Moisture
+    if (ev.moisture === 'Sí') sumMoisture += 1;
+
+    // Plants
+    if (ev.plants === 'Muchas') sumPlants += 5;
+    else if (ev.plants === 'Pocas') sumPlants += 3;
+    else sumPlants += 1;
+
+    // Views
+    if (ev.views === 'Visual al verde') sumViews += 5;
+    else if (ev.views === 'Visual edificada') sumViews += 3;
+    else sumViews += 1;
+
+    // Order
+    if (ev.order === 'Fácil de sostener') sumOrder += 5;
+    else if (ev.order === 'Se desorganiza fácil') sumOrder += 3;
+    else sumOrder += 1;
+
+    // Circulation
+    if (ev.circulation === 'Fluida y libre') sumCirc += 5;
+    else if (ev.circulation === 'Con obstáculos') sumCirc += 3;
+    else sumCirc += 2;
+  });
+
+  const count = roomKeys.length || 1;
+  p.slidePhys1 = Math.round(sumLight / count);
+  p.slidePhys2 = Math.round(sumNoise / count);
+  p.slideBio1 = Math.round(sumPlants / count);
+  p.slideBio2 = Math.round(sumViews / count);
+  p.slideOrd1 = Math.round(sumOrder / count);
+  p.slideOrd2 = Math.round(sumCirc / count);
+  p.hasMoisture = sumMoisture > 0 ? 'Si' : 'No';
+
+  // Map budget
+  if (form.interventionType && form.interventionType.includes('Pequeños cambios')) p.budget = 'Bajo';
+  else if (form.interventionType && form.interventionType.includes('Mejoras progresivas')) p.budget = 'Medio';
+  else p.budget = 'Alto';
+
+  return p;
+}
 
 // ── Coherent Mathematical Calculation of IBBH ──────────────────
-export function calculateIbbh(form: WizardFormData): number {
+export function calculateIbbh(rawForm: WizardFormData): number {
+  const form = preprocessForm(rawForm);
   // 1. Personal & Emotional Context (slides 1 and 2: max 10)
   const emotionalSum = form.slideEmotional1 + form.slideEmotional2; 
   
@@ -23,7 +164,7 @@ export function calculateIbbh(form: WizardFormData): number {
   let roomScoreAvg = 75; // Default if no rooms are selected
   if (roomKeys.length > 0) {
     const totalRoomScore = roomKeys.reduce((acc, room) => {
-      const roomEval = form.roomEvaluations[room] || { feel: 3, light: 3, order: 3 };
+      const roomEval = getNumericRoomEval(form.roomEvaluations[room]);
       return acc + (roomEval.feel + roomEval.light + roomEval.order);
     }, 0);
     const maxPossibleRoomScore = roomKeys.length * 15;
@@ -103,7 +244,8 @@ export function getStatusConfig(status: IbbhStatus): StatusConfig {
 }
 
 // ── Dimension Scores from Form ───────────────────────────────
-export function calculateDimensions(form: WizardFormData): DimensionScores {
+export function calculateDimensions(rawForm: WizardFormData): DimensionScores {
+  const form = preprocessForm(rawForm);
   // Extract room averages
   const roomKeys = Object.keys(form.roomEvaluations);
   let avgRoomFeel = 3;
@@ -112,7 +254,7 @@ export function calculateDimensions(form: WizardFormData): DimensionScores {
 
   if (roomKeys.length > 0) {
     const sum = roomKeys.reduce((acc, r) => {
-      const e = form.roomEvaluations[r] || { feel: 3, light: 3, order: 3 };
+      const e = getNumericRoomEval(form.roomEvaluations[r]);
       return { feel: acc.feel + e.feel, light: acc.light + e.light, order: acc.order + e.order };
     }, { feel: 0, light: 0, order: 0 });
     avgRoomFeel = sum.feel / roomKeys.length;
@@ -129,7 +271,7 @@ export function calculateDimensions(form: WizardFormData): DimensionScores {
   // Sleep is specifically dependent on Bedroom feel, light, order if selected
   let descanso = Math.round((form.slidePhys2 * 10 + form.slideEmotional2 * 10) / 2);
   if (form.roomEvaluations['Dormitorio Principal']) {
-    const bed = form.roomEvaluations['Dormitorio Principal'];
+    const bed = getNumericRoomEval(form.roomEvaluations['Dormitorio Principal']);
     descanso = Math.round(((bed.feel + bed.light + bed.order) / 15) * 100);
   }
 
@@ -565,7 +707,7 @@ export function generateActionItems(form: WizardFormData): ActionItem[] {
   let lowestRoom = 'Dormitorio Principal';
   let minScore = 100;
   Object.keys(form.roomEvaluations).forEach((room) => {
-    const e = form.roomEvaluations[room];
+    const e = getNumericRoomEval(form.roomEvaluations[room]);
     const s = e.feel + e.light + e.order;
     if (s < minScore) {
       minScore = s;
@@ -587,7 +729,8 @@ export function generateActionItems(form: WizardFormData): ActionItem[] {
 }
 
 // ── Build Full Client from Form ──────────────────────────────
-export function buildClientFromForm(form: WizardFormData): BianchClient {
+export function buildClientFromForm(rawForm: WizardFormData): BianchClient {
+  const form = preprocessForm(rawForm);
   const ibbh = calculateIbbh(form);
   const status = getIbbhStatus(ibbh);
   const dimensions = calculateDimensions(form);

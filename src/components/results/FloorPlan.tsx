@@ -99,6 +99,8 @@ const BLUEPRINT_ROOMS = [
   { key: 'Patio / Balcón', name: 'Patio / Balcón', slotClass: 'room-slot-patio', icon: '🌿' },
 ];
 
+import { getNumericRoomEval } from '../../utils/ibbhCalculator';
+
 export function FloorPlan({ rooms }: Props) {
   const { form } = useAppStore();
   const [selectedRoomName, setSelectedRoomName] = useState<string>('Dormitorio Principal');
@@ -107,7 +109,7 @@ export function FloorPlan({ rooms }: Props) {
   const getRoomDetails = (roomKey: string): RoomData => {
     // If we have actual evaluations from step 4
     if (form.roomEvaluations && form.roomEvaluations[roomKey]) {
-      const { feel, light, order } = form.roomEvaluations[roomKey];
+      const { feel, light, order } = getNumericRoomEval(form.roomEvaluations[roomKey]);
       const score = Math.round(((feel + light + order) / 15) * 80) + 20;
 
       let status: 'healthy' | 'warning' | 'critical' = 'healthy';

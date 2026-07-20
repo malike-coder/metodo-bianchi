@@ -122,9 +122,23 @@ export interface BianchClient {
 
 // ── Wizard Form State ────────────────────────────────────────
 export interface RoomEvaluation {
-  feel: number;
-  light: number;
-  order: number;
+  feel: number; // 1-5 scale (from Muy incómodo to Muy bien)
+  mainActivity: string;
+  supportsActivity: string; // Siempre, Casi siempre, A veces, Pocas veces, Nunca
+  light: string; // Muy abundante, Suficiente, Escasa, Casi no hay
+  ventilation: string; // Excelente, Aceptable, Mala, No tiene
+  temperature: string; // Agradable, Caluroso, Frío
+  noise: string; // Silencioso, Moderado, Ruidoso
+  moisture: string; // No, Sí
+  order: string; // Fácil de sostener, Se desorganiza fácil, Caótico
+  storage: string; // Suficiente, Falta espacio, Poco accesible
+  circulation: string; // Fluida y libre, Con obstáculos, Estrecha
+  easeOfUse: string; // Fácil, Incómodo, Pesado
+  plants: string; // Muchas, Pocas, Ninguna
+  views: string; // Visual al verde, Visual edificada, Sin vistas
+  exteriorRelation: string; // Directa, Indirecta, Ninguna
+  specificAnswer1: string;
+  specificAnswer2: string;
 }
 
 export interface WizardFormData {
@@ -170,8 +184,26 @@ export interface WizardFormData {
   scannedRooms?: Record<string, RoomAiAnalysis>;
 
   // Contextual Layers additions
-  housingStatus: string; // 'Propio' | 'Alquiler'
+  housingStatus: string; // 'Propio' | 'Alquiler' | 'Familiar' | 'Temporal'
   budget: string; // 'Bajo' | 'Medio' | 'Alto'
+
+  // New Conversational Fields (Phase 2 Redesign)
+  interventionType: string; // 'Pequeños cambios' | 'Mejoras progresivas' | 'Reforma integral'
+  transitions: string[]; // Multiple choice transitions
+  sharedWith: string[]; // Multiple choice occupants
+  petTypes: string[]; // Multiple choice pets
+  petCount: string; // '1' | '2' | '3 o más'
+  desiredFeelings: string[]; // Selection of up to 3 feelings
+
+  // New Conversation 2 Emotional Fields
+  arrivalFeeling: string;
+  homeRepresentation: string;
+  predominantSensations: string[];
+  favoriteRoom: string;
+  avoidedRoom: string; // 'Si' | 'No'
+  avoidedRoomName: string;
+  desiredDailyFeeling: string;
+  relationshipPhrase: string;
 }
 
 export const DEFAULT_WIZARD_FORM: WizardFormData = {
@@ -179,8 +211,8 @@ export const DEFAULT_WIZARD_FORM: WizardFormData = {
   age: '',
   city: '',
   transition: 'Ninguno',
-  hoursAtHome: '6 a 12',
-  hasPets: 'Si',
+  hoursAtHome: 'Entre 6 y 12 horas',
+  hasPets: 'No',
   slideEmotional1: 3,
   slideEmotional2: 3,
   predominantEmotion: 'Calma',
@@ -202,4 +234,20 @@ export const DEFAULT_WIZARD_FORM: WizardFormData = {
   scannedRooms: {},
   housingStatus: 'Alquiler',
   budget: 'Medio',
+
+  // New default conversational states
+  interventionType: '🌿 Pequeños cambios',
+  transitions: [],
+  sharedWith: [],
+  petTypes: [],
+  petCount: '1',
+  desiredFeelings: [],
+  arrivalFeeling: '🌿 Siento que puedo bajar un cambio.',
+  homeRepresentation: '🌱 Te representa en parte.',
+  predominantSensations: [],
+  favoriteRoom: 'Living',
+  avoidedRoom: 'No',
+  avoidedRoomName: '',
+  desiredDailyFeeling: '🌿 Más calma.',
+  relationshipPhrase: '',
 };
