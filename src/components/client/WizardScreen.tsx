@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { buildClientFromForm } from '../../utils/ibbhCalculator';
 import { analyzeRoomPhotoWithAi } from '../../services/aiService';
-import { ChevronRight, ChevronLeft, CheckCircle2, Upload, Plus, Trash2, Camera, Check } from 'lucide-react';
+import { ChevronRight, ChevronLeft, CheckCircle2, Upload, Trash2, Camera, Check } from 'lucide-react';
 import type { RoomAiAnalysis } from '../../types/bianchi';
 
 const DEFAULT_ROOM_ICONS: Record<string, string> = {
@@ -65,7 +65,10 @@ export function WizardScreen() {
   const [slideClass, setSlideClass] = useState('slide-in-right');
 
   // Room carousel state for Step 4
-  const [currentRoomIdx, setCurrentRoomIdx] = useState(0);
+  const [currentRoomIdx, setCurrentRoomIdx] = useState(() => {
+    const idx = form.selectedRooms.indexOf(form.targetRoom);
+    return idx !== -1 ? idx : 0;
+  });
   const [roomSubStep, setRoomSubStep] = useState(0); // 0: Fotos, 1: Experiencia, 2: Confort, 3: Org, 4: Naturaleza, 5: Detalles
 
   // Transitions
@@ -83,10 +86,7 @@ export function WizardScreen() {
   // Ref for scroll-to-wizard
   const wizardCardRef = useRef<HTMLDivElement>(null);
 
-  // Custom environments lists
-  const [showCustomListDrawer, setShowCustomListDrawer] = useState(false);
-  const [customRoomNameInput, setCustomRoomNameInput] = useState('');
-  const [customRooms, setCustomRooms] = useState<string[]>([]);
+
 
   // Cleanup blob URLs on unmount
   useEffect(() => {
@@ -171,36 +171,18 @@ export function WizardScreen() {
     updateForm({ roomEvaluations: updated });
   };
 
-  const toggleRoom = (roomName: string) => {
-    const isSelected = form.selectedRooms.includes(roomName);
-    const newRooms = isSelected
-      ? form.selectedRooms.filter((r) => r !== roomName)
-      : [...form.selectedRooms, roomName];
-    updateForm({ selectedRooms: newRooms });
-    setCurrentRoomIdx(0);
-  };
 
-  const addCustomRoom = (name: string) => {
-    const trimmed = name.trim();
-    if (!trimmed) return;
-    if (form.selectedRooms.includes(trimmed)) {
-      alert('Este ambiente ya está en tu lista.');
-      return;
-    }
-    if (!customRooms.includes(trimmed)) {
-      setCustomRooms(prev => [...prev, trimmed]);
-    }
-    toggleRoom(trimmed);
-  };
 
-  const handlePhotoUpload = (file: File | undefined) => {
-    if (!file) return;
+
+
+  const handlePhotoUpload = (files: FileList | null) => {
+    if (!files || files.length === 0) return;
     const currentFiles = [...(form.photoFiles[activeRoom] || [])];
-    if (currentFiles.length >= 6) {
-      alert('Podés subir hasta 6 fotografías por ambiente.');
+    if (currentFiles.length + files.length > 6) {
+      alert('Podés subir hasta 6 fotografías por ambiente en total.');
       return;
     }
-    const newFiles = [...currentFiles, file];
+    const newFiles = [...currentFiles, ...Array.from(files)];
     const allFiles = { ...form.photoFiles };
     allFiles[activeRoom] = newFiles;
     updateForm({ photoFiles: allFiles, photosUploaded: true });
@@ -246,6 +228,26 @@ export function WizardScreen() {
     }
   };
 
+  const getSuggestedRoomForGoal = (goal: string): string => {
+    switch (goal) {
+      case 'Descansar mejor':
+      case 'Recuperar energía':
+        return 'Dormitorio Principal';
+      case 'Disfrutar cocinar':
+        return 'Cocina';
+      case 'Compartir más con mi familia':
+      case 'Recibir visitas con más comodidad':
+        return 'Living';
+      case 'Trabajar con mayor concentración':
+        return 'Escritorio';
+      case 'Tener una casa más ordenada':
+      case 'Sentirme más tranquilo en mi casa':
+        return 'Entrada';
+      default:
+        return 'Dormitorio Principal';
+    }
+  };
+
   const goNext = () => {
     // Validations
     if (wizardStep === 1) {
@@ -260,6 +262,13 @@ export function WizardScreen() {
     }
 
     if (wizardStep === 2) {
+      if (!form.improvementGoal) {
+        alert('Por favor, seleccioná un aspecto de tu vida que te gustaría mejorar.');
+        return;
+      }
+      // Suggest room based on goal
+      const suggestion = getSuggestedRoomForGoal(form.improvementGoal);
+      updateForm({ targetRoom: suggestion });
       setSlideClass('slide-in-right');
       setWizardStep(3);
       scrollToCard();
@@ -267,10 +276,16 @@ export function WizardScreen() {
     }
 
     if (wizardStep === 3) {
-      if (form.selectedRooms.length === 0) {
-        alert('Por favor, seleccioná al menos un ambiente de tu casa.');
+      if (!form.targetRoom) {
+        alert('Por favor, seleccioná el ambiente con el que querés comenzar.');
         return;
       }
+
+      // Sync selected rooms to include the current target room
+      const currentCompleted = form.completedRooms || [];
+      const updatedRooms = Array.from(new Set([...currentCompleted, form.targetRoom]));
+      updateForm({ selectedRooms: updatedRooms });
+
       if (!showStep3Transition) {
         setShowStep3Transition(true);
         scrollToCard();
@@ -278,7 +293,7 @@ export function WizardScreen() {
         setShowStep3Transition(false);
         setSlideClass('slide-in-right');
         setWizardStep(4);
-        setCurrentRoomIdx(0);
+        setCurrentRoomIdx(updatedRooms.indexOf(form.targetRoom));
         setRoomSubStep(0);
         scrollToCard();
       }
@@ -288,14 +303,17 @@ export function WizardScreen() {
     if (wizardStep === 4) {
       if (showRoomTransition) {
         setShowRoomTransition(false);
-        setCurrentRoomIdx(prev => prev + 1);
-        setRoomSubStep(0);
+        setShowFinalTransition(true);
         scrollToCard();
         return;
       }
 
       if (showFinalTransition) {
-        const processedClient = buildClientFromForm(form);
+        const newCompleted = Array.from(new Set([...(form.completedRooms || []), form.targetRoom]));
+        updateForm({ completedRooms: newCompleted, selectedRooms: newCompleted });
+
+        const updatedForm = { ...form, completedRooms: newCompleted, selectedRooms: newCompleted };
+        const processedClient = buildClientFromForm(updatedForm);
         setCurrentClient(processedClient);
         setClientScreen('processing');
         return;
@@ -303,13 +321,14 @@ export function WizardScreen() {
 
       // Step 4 Substeps
       if (roomSubStep === 0) {
-        // Enforce mandatory photos
-        if (roomFiles.length < 2) {
-          alert('Por favor, cargá al menos 2 fotos del ambiente. Esto nos permite hacer una observación real del espacio.');
-          return;
+        // Photos are recommended, not mandatory
+        const uploaded = roomFiles.length > 0;
+        updateForm({ photosUploaded: uploaded });
+        
+        // Trigger AI background scan only if photos are uploaded
+        if (roomFiles.length > 0) {
+          triggerBackgroundAiScan(activeRoom, roomFiles);
         }
-        // Trigger simulation or real AI vision call in background
-        triggerBackgroundAiScan(activeRoom, roomFiles);
       }
 
       if (roomSubStep < 5) {
@@ -317,13 +336,8 @@ export function WizardScreen() {
         scrollToCard();
       } else {
         // Last sub step of active room
-        if (currentRoomIdx < form.selectedRooms.length - 1) {
-          setShowRoomTransition(true);
-          scrollToCard();
-        } else {
-          setShowFinalTransition(true);
-          scrollToCard();
-        }
+        setShowFinalTransition(true);
+        scrollToCard();
       }
     }
   };
@@ -371,10 +385,9 @@ export function WizardScreen() {
         setRoomSubStep(prev => prev - 1);
         scrollToCard();
       } else {
-        if (currentRoomIdx > 0) {
-          setCurrentRoomIdx(prev => prev - 1);
-          setRoomSubStep(5);
-          scrollToCard();
+        if (form.completedRooms && form.completedRooms.length > 0) {
+          // Return to results if progressively assessing rooms
+          setClientScreen('results');
         } else {
           setSlideClass('slide-in-left');
           setWizardStep(3);
@@ -413,6 +426,9 @@ export function WizardScreen() {
       predominantEmotion: 'Incomodidad',
       desiredFeeling: 'Liviandad, contención, orden y calma',
       selectedRooms: ['Entrada', 'Living', 'Cocina', 'Dormitorio Principal', 'Baño', 'Escritorio', 'Patio / Balcón'],
+      completedRooms: ['Entrada', 'Living', 'Cocina', 'Dormitorio Principal', 'Baño', 'Escritorio', 'Patio / Balcón'],
+      improvementGoal: 'Descansar mejor',
+      targetRoom: 'Dormitorio Principal',
       roomEvaluations: {
         'Entrada': { feel: 4, mainActivity: 'Ingresar y descompresión', supportsActivity: 'Siempre', light: 'Suficiente', ventilation: 'Aceptable', temperature: 'Agradable', noise: 'Moderado', moisture: 'No', order: 'Se desorganiza fácil', storage: 'Suficiente', circulation: 'Con obstáculos', easeOfUse: 'Fácil', plants: 'Ninguna', views: 'Sin vistas', exteriorRelation: 'Ninguna', specificAnswer1: '', specificAnswer2: '' },
         'Living': { feel: 3, mainActivity: 'Descansar', supportsActivity: 'A veces', light: 'Suficiente', ventilation: 'Aceptable', temperature: 'Agradable', noise: 'Moderado', moisture: 'No', order: 'Se desorganiza fácil', storage: 'Suficiente', circulation: 'Con obstáculos', easeOfUse: 'Fácil', plants: 'Pocas', views: 'Visual edificada', exteriorRelation: 'Ninguna', specificAnswer1: 'A veces', specificAnswer2: 'Sí, une a la casa' },
@@ -673,9 +689,9 @@ export function WizardScreen() {
               </p>
               <h2 className="text-3xl font-light" style={{ fontFamily: 'Cormorant Garamond, serif', margin: 0 }}>
                 {wizardStep === 1 && '🤍 Conversación 1 · Conocerte'}
-                {wizardStep === 2 && '🤍 Conversación 2 · ¿Cómo vivís tu hogar?'}
-                {wizardStep === 3 && '🏡 Conversación 3 · Conozcamos tu hogar'}
-                {wizardStep === 4 && '🛋️ Conversación 4 · Recorremos tu hogar'}
+                {wizardStep === 2 && '🎯 Conversación 2 · Objetivo de bienestar'}
+                {wizardStep === 3 && '🏡 Conversación 3 · Tu ambiente de partida'}
+                {wizardStep === 4 && `🛋️ Conversación 4 · Recorremos tu ${activeRoom}`}
               </h2>
             </div>
             {wizardStep === 1 && (
@@ -893,277 +909,102 @@ export function WizardScreen() {
               </div>
             )}
 
-            {/* ── CONVERSACIÓN 2: ¿Cómo vivís tu hogar? ── */}
+            {/* ── PASO 2: Aspecto de Mejora Principal ── */}
             {wizardStep === 2 && (
-              <div className="animate-[fadeIn_0.4s_ease-out]" style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
-                
-                <p style={{ fontSize: '0.86rem', color: '#878179', margin: '0 0 -10px 0', lineHeight: 1.5 }}>
-                  Cada persona vive su hogar de una manera diferente. No existen respuestas correctas o incorrectas. Solo queremos comprender cómo se siente tu experiencia cotidiana para elaborar un diagnóstico realmente personalizado.<br/>
-                  <span style={{ fontWeight: 550, marginTop: '4px', display: 'inline-block' }}>⏱️ Duración aproximada: 2 minutos.</span>
+              <div className="animate-[fadeIn_0.4s_ease-out]" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                <p style={{ fontSize: '0.86rem', color: '#878179', margin: '0 0 10px 0', lineHeight: 1.5 }}>
+                  En el Método Bianchi® entendemos que tu hogar funciona en sincronía con tu vida. Para comenzar la experiencia, elegí qué aspecto de tu bienestar diario te gustaría enfocar hoy:
                 </p>
 
-                {/* Pregunta 1 */}
-                <div className="form-group">
-                  <label className="form-label">Cuando llegás a tu casa… ¿Cuál de estas frases se parece más a vos?</label>
-                  <div className="choices-grid-layout" style={{ gridTemplateColumns: '1fr' }}>
-                    {[
-                      '🌿 Siento que puedo bajar un cambio.',
-                      '😊 Me gusta volver.',
-                      '😐 Entro y sigo con mi día.',
-                      '😓 Empiezo a pensar en todo lo que tengo que hacer.',
-                      '😣 Me siento sobrepasado.'
-                    ].map((option) => (
-                      <div key={option}
-                        onClick={() => updateForm({ arrivalFeeling: option })}
-                        className={`choice-card ${form.arrivalFeeling === option ? 'selected' : ''}`}>
-                        <span className="choice-card-title">{option}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Pregunta 2 */}
-                <div className="form-group">
-                  <label className="form-label">Hoy sentís que tu casa…</label>
-                  <div className="choices-grid-layout" style={{ gridTemplateColumns: '1fr' }}>
-                    {[
-                      '🤍 Refleja quién sos.',
-                      '🌱 Te representa en parte.',
-                      '🏡 Cumple su función, pero ya no acompaña tu momento actual.',
-                      '🌪 Sentís que dejó de representar tu vida.'
-                    ].map((option) => (
-                      <div key={option}
-                        onClick={() => updateForm({ homeRepresentation: option })}
-                        className={`choice-card ${form.homeRepresentation === option ? 'selected' : ''}`}>
-                        <span className="choice-card-title">{option}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Pregunta 3 */}
-                <div className="form-group">
-                  <label className="form-label">¿Qué palabra describe mejor la sensación que predomina cuando estás en tu hogar?</label>
-                  <span style={{ fontSize: '0.76rem', color: '#878179', display: 'block', marginBottom: '8px' }}>
-                    Elegí hasta tres.
-                  </span>
-                  <div className="choices-grid-layout-small">
-                    {[
-                      '🌿 Calma',
-                      '🤍 Refugio',
-                      '😊 Bienestar',
-                      '💪 Energía',
-                      '🎨 Inspiración',
-                      '😴 Descanso',
-                      '📦 Desorden',
-                      '😓 Estrés',
-                      '😣 Agobio',
-                      '😐 Indiferencia',
-                      '🏠 Seguridad',
-                      '✨ Alegría'
-                    ].map((sens) => {
-                      const isSel = (form.predominantSensations || []).includes(sens);
-                      const isLimit = !isSel && (form.predominantSensations || []).length >= 3;
-                      return (
-                        <button key={sens} type="button"
-                          disabled={isLimit}
-                          onClick={() => toggleMultiSelect('predominantSensations', sens, 3)}
-                          className={`choice-pill-btn ${isSel ? 'selected' : ''}`}
-                          style={{ opacity: isLimit ? 0.5 : 1, padding: '10px 12px' }}>
-                          {sens}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <span className="limit-indicator">
-                    Selected: {(form.predominantSensations || []).length} / 3
-                  </span>
-                </div>
-
-                {/* Pregunta 4 */}
-                <div className="form-group">
-                  <label className="form-label">¿Qué espacio disfrutás más?</label>
-                  <div className="choices-grid-layout-small">
-                    {['Living', 'Dormitorio', 'Cocina', 'Comedor', 'Baño', 'Patio', 'Balcón', 'Otro'].map((space) => (
-                      <button key={space} type="button"
-                        onClick={() => updateForm({ favoriteRoom: space })}
-                        className={`choice-pill-btn ${form.favoriteRoom === space ? 'selected' : ''}`}>
-                        {space}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Pregunta 5 */}
-                <div className="form-group">
-                  <label className="form-label">¿Hay algún ambiente que hoy evitás?</label>
-                  <div style={{ display: 'flex', gap: '12px', marginTop: '6px' }}>
-                    {['No', 'Si'].map((opt) => (
-                      <button key={opt} type="button"
-                        onClick={() => updateForm({ avoidedRoom: opt })}
-                        className={`choice-pill-btn ${form.avoidedRoom === opt ? 'selected' : ''}`}
-                        style={{ flex: 1, padding: '12px' }}>
-                        {opt === 'Si' ? 'Sí' : 'No'}
-                      </button>
-                    ))}
-                  </div>
-
-                  {form.avoidedRoom === 'Si' && (
-                    <div className="animate-[fadeIn_0.3s_ease-out]" style={{ marginTop: '14px' }}>
-                      <label className="form-label" style={{ fontSize: '0.78rem' }}>¿Cuál es el ambiente que evitás?</label>
-                      <input type="text" className="form-input" placeholder="Ej: Dormitorio secundario, sótano..."
-                        value={form.avoidedRoomName} onChange={(e) => updateForm({ avoidedRoomName: e.target.value })} />
+                <div className="choices-grid-layout" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))' }}>
+                  {[
+                    { val: 'Descansar mejor', title: '😴 Descansar mejor', desc: 'Optimizar tu dormitorio para conciliar el sueño profundo y reparador.' },
+                    { val: 'Disfrutar cocinar', title: '🍳 Disfrutar cocinar', desc: 'Hacer de la cocina un espacio más cómodo, práctico e inspirador.' },
+                    { val: 'Tener una casa más ordenada', title: '📦 Tener una casa más ordenada', desc: 'Reducir el desorden visual y simplificar tus rutinas de guardado.' },
+                    { val: 'Compartir más con mi familia', title: '👨‍👩‍👧 Compartir más con mi familia', desc: 'Crear zonas de encuentro y conversación que acerquen a los tuyos.' },
+                    { val: 'Trabajar con mayor concentración', title: '💻 Trabajar con mayor concentración', desc: 'Diseñar un área de trabajo libre de distracciones y con el confort necesario.' },
+                    { val: 'Sentirme más tranquilo en mi casa', title: '🧘 Sentirme más tranquilo en mi casa', desc: 'Bajar las revoluciones al cruzar la puerta y aliviar el estrés.' },
+                    { val: 'Recuperar energía', title: '⚡ Recuperar energía', desc: 'Transformar tu hogar en un cargador activo para tu mente y cuerpo.' },
+                    { val: 'Recibir visitas con más comodidad', title: '🚪 Recibir visitas con más comodidad', desc: 'Mejorar tus ambientes comunes para compartir momentos con calidez.' }
+                  ].map((opt) => (
+                    <div key={opt.val}
+                      onClick={() => updateForm({ improvementGoal: opt.val })}
+                      className={`choice-card ${form.improvementGoal === opt.val ? 'selected' : ''}`}
+                      style={{ padding: '20px', cursor: 'pointer' }}>
+                      <span className="choice-card-title" style={{ fontSize: '0.98rem', marginBottom: '4px' }}>{opt.title}</span>
+                      <span className="choice-card-desc">{opt.desc}</span>
                     </div>
-                  )}
+                  ))}
                 </div>
-
-                {/* Pregunta 6 */}
-                <div className="form-group">
-                  <label className="form-label">Si tu hogar pudiera regalarte una sensación todos los días… ¿Cuál elegirías?</label>
-                  <div className="choices-grid-layout" style={{ gridTemplateColumns: 'repeat(2, 1fr)' }}>
-                    {[
-                      '🌿 Más calma.',
-                      '😴 Descansar mejor.',
-                      '💪 Más energía.',
-                      '😊 Más alegría.',
-                      '🏡 Sentirme realmente en casa.',
-                      '👨👩👧 Compartir más tiempo.',
-                      '🎨 Inspirarme.',
-                      '✨ Disfrutar más mi vida cotidiana.'
-                    ].map((opt) => (
-                      <button key={opt} type="button"
-                        onClick={() => updateForm({ desiredDailyFeeling: opt })}
-                        className={`choice-pill-btn ${form.desiredDailyFeeling === opt ? 'selected' : ''}`}
-                        style={{ padding: '12px', textAlign: 'left', justifyContent: 'flex-start' }}>
-                        {opt}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Pregunta 7 */}
-                <div className="form-group">
-                  <label className="form-label">Si pudieras describir hoy la relación con tu hogar en una frase… (Opcional)</label>
-                  <textarea className="form-input" rows={3}
-                    placeholder='Ej: "Me gustaría sentir que mi casa me abraza" o "Siento que mi casa quedó en otra etapa de mi vida."'
-                    value={form.relationshipPhrase} onChange={(e) => updateForm({ relationshipPhrase: e.target.value })}
-                    style={{ resize: 'vertical', minHeight: '80px', padding: '12px' }} />
-                </div>
-
               </div>
             )}
 
-            {/* ── CONVERSACIÓN 3: Conozcamos tu hogar ── */}
+            {/* ── PASO 3: Sugerencia y Confirmación de Ambiente ── */}
             {wizardStep === 3 && !showStep3Transition && (
-              <div className="animate-[fadeIn_0.4s_ease-out]">
+              <div className="animate-[fadeIn_0.4s_ease-out]" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                 
-                <p style={{ fontSize: '0.86rem', color: '#878179', margin: '0 0 20px 0', lineHeight: 1.5 }}>
-                  Cada hogar es único. Seleccioná únicamente los ambientes que forman parte de tu casa. En el siguiente paso recorreremos solo esos espacios para comprender cómo influyen en tu bienestar cotidiano.<br/>
-                  <span style={{ fontWeight: 550, marginTop: '4px', display: 'inline-block' }}>⏱️ Duración aproximada: 1 minuto.</span>
+                <div style={{
+                  background: 'rgba(92, 122, 99, 0.05)',
+                  border: '1px solid rgba(92, 122, 99, 0.15)',
+                  borderRadius: '8px',
+                  padding: '20px',
+                  textAlign: 'left'
+                }}>
+                  <span style={{ fontSize: '0.68rem', fontWeight: 600, textTransform: 'uppercase', color: '#5C7A63', letterSpacing: '0.08em', display: 'block', marginBottom: '6px' }}>
+                    Sugerencia del Método
+                  </span>
+                  <h4 style={{ fontSize: '1.2rem', fontFamily: 'Cormorant Garamond, serif', fontWeight: 600, margin: '0 0 6px 0', color: '#1C1917' }}>
+                    Te sugerimos comenzar recorriendo tu {form.targetRoom}
+                  </h4>
+                  <p style={{ fontSize: '0.85rem', color: '#57534E', lineHeight: 1.45, margin: 0 }}>
+                    Para tu objetivo de <strong>"{form.improvementGoal}"</strong>, este ambiente es la base que más influye directamente en tu bienestar físico y emocional.
+                  </p>
+                </div>
+
+                <p style={{ fontSize: '0.86rem', color: '#878179', margin: '10px 0 0 0', lineHeight: 1.5 }}>
+                  Podés confirmar esta sugerencia o elegir cualquier otro espacio interior de tu casa para iniciar tu diagnóstico:
                 </p>
 
                 <div className="room-selector-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '10px' }}>
-                  {Object.keys(DEFAULT_ROOM_ICONS).map((roomKey) => {
-                    const isSelected = form.selectedRooms.includes(roomKey);
+                  {[
+                    { key: 'Dormitorio Principal', name: 'Dorm. Principal', icon: '🛌' },
+                    { key: 'Cocina', name: 'Cocina', icon: '🍳' },
+                    { key: 'Living', name: 'Living', icon: '🛋️' },
+                    { key: 'Escritorio', name: 'Escritorio', icon: '💻' },
+                    { key: 'Entrada', name: 'Entrada / Hall', icon: '🚪' },
+                    { key: 'Baño', name: 'Baño', icon: '🚿' },
+                    { key: 'Comedor', name: 'Comedor', icon: '🍽️' },
+                    { key: 'Dormitorio Infantil', name: 'Dorm. Infantil', icon: '🧸' },
+                    { key: 'Playroom', name: 'Playroom / Estar', icon: '🎮' },
+                    { key: 'Vestidor', name: 'Vestidor', icon: '👗' },
+                    { key: 'Lavadero', name: 'Lavadero', icon: '🧺' },
+                    { key: 'Pasillo / Distribuidor', name: 'Pasillo', icon: '🧱' }
+                  ].map((room) => {
+                    const isSelected = form.targetRoom === room.key;
                     return (
-                      <button key={roomKey} type="button"
-                        onClick={() => toggleRoom(roomKey)}
+                      <button key={room.key} type="button"
+                        onClick={() => updateForm({ targetRoom: room.key })}
                         className={`room-card-option ${isSelected ? 'selected' : ''}`}>
-                        <div className="room-icon-placeholder" style={{ fontSize: '1.4rem' }}>{DEFAULT_ROOM_ICONS[roomKey]}</div>
+                        <div className="room-icon-placeholder" style={{ fontSize: '1.4rem' }}>{room.icon}</div>
                         <span style={{ fontSize: '0.78rem', fontWeight: 500 }}>
-                          {roomKey === 'Dormitorio Principal' ? 'Dorm. Principal' : roomKey === 'Dormitorio Secundario' ? 'Dorm. Secund.' : roomKey}
+                          {room.name}
                         </span>
                       </button>
                     );
                   })}
-
-                  {/* Added custom rooms */}
-                  {customRooms.map((roomKey) => {
-                    const isSelected = form.selectedRooms.includes(roomKey);
-                    return (
-                      <button key={roomKey} type="button"
-                        onClick={() => toggleRoom(roomKey)}
-                        className={`room-card-option ${isSelected ? 'selected' : ''}`}>
-                        <div className="room-icon-placeholder" style={{ fontSize: '1.4rem' }}>🏠</div>
-                        <span style={{ fontSize: '0.78rem', fontWeight: 500 }}>{roomKey}</span>
-                      </button>
-                    );
-                  })}
-
-                  {/* Add environment button */}
-                  <button type="button" onClick={() => setShowCustomListDrawer(true)}
-                    className="room-card-option"
-                    style={{ borderStyle: 'dashed', borderColor: 'var(--brand-primary)', background: 'transparent' }}>
-                    <div className="room-icon-placeholder" style={{ color: 'var(--brand-primary)', fontSize: '1.4rem' }}>
-                      <Plus size={20} />
-                    </div>
-                    <span style={{ color: 'var(--brand-primary)', fontWeight: 600, fontSize: '0.78rem' }}>Agregar ambiente</span>
-                  </button>
                 </div>
-
-                {form.selectedRooms.length > 0 && (
-                  <p style={{ marginTop: '20px', fontSize: '0.82rem', color: '#5C7A63', fontWeight: 550, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <CheckCircle2 size={14} /> {form.selectedRooms.length} ambiente{form.selectedRooms.length > 1 ? 's' : ''} seleccionado{form.selectedRooms.length > 1 ? 's' : ''}
-                  </p>
-                )}
-
-                {/* Additional Room Drawer */}
-                {showCustomListDrawer && (
-                  <div className="drawer-overlay" onClick={() => setShowCustomListDrawer(false)}>
-                    <div className="drawer-content" onClick={(e) => e.stopPropagation()}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                        <h3 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.4rem', margin: 0, fontWeight: 500 }}>Ambientes adicionales</h3>
-                        <button type="button" className="choice-pill-btn" onClick={() => setShowCustomListDrawer(false)} style={{ padding: '4px 8px', borderRadius: '4px' }}>✕</button>
-                      </div>
-
-                      <div className="choices-grid-layout-small" style={{ maxHeight: '250px', overflowY: 'auto', paddingRight: '4px' }}>
-                        {ADDITIONAL_ROOMS.map((add) => {
-                          const isSel = form.selectedRooms.includes(add.name);
-                          return (
-                            <button key={add.name} type="button"
-                              onClick={() => {
-                                toggleRoom(add.name);
-                              }}
-                              className={`choice-pill-btn ${isSel ? 'selected' : ''}`}
-                              style={{ justifyContent: 'flex-start', padding: '10px' }}>
-                              <span>{add.icon}</span> {add.name}
-                            </button>
-                          );
-                        })}
-                      </div>
-
-                      <div style={{ borderTop: '1px solid #EAE7E1', marginTop: '18px', paddingTop: '16px' }}>
-                        <label className="form-label" style={{ fontSize: '0.78rem' }}>Otro ambiente personalizado</label>
-                        <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
-                          <input type="text" className="form-input" placeholder="Ej: Ático, Invernadero..."
-                            value={customRoomNameInput} onChange={(e) => setCustomRoomNameInput(e.target.value)}
-                            style={{ flex: 1, padding: '8px 12px' }} />
-                          <button type="button" className="btn btn-primary"
-                            onClick={() => {
-                              addCustomRoom(customRoomNameInput);
-                              setCustomRoomNameInput('');
-                            }}
-                            style={{ padding: '8px 16px', borderRadius: '6px', fontSize: '0.78rem' }}>
-                            Agregar
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
               </div>
             )}
 
             {/* ── CONVERSACIÓN 3 TRANSICIÓN: Estructura Completa ── */}
             {wizardStep === 3 && showStep3Transition && (
               <div className="animate-[fadeIn_0.4s_ease-out] text-center" style={{ padding: '40px 20px' }}>
-                <div style={{ fontSize: '3rem', marginBottom: '16px' }}>🏡</div>
+                <div style={{ fontSize: '3rem', marginBottom: '16px' }}>🛋️</div>
                 <h3 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.8rem', fontWeight: 300, color: 'var(--text-charcoal)', margin: '0 0 16px 0' }}>
-                  Perfecto. Ya conocemos la estructura de tu hogar.
+                  ¡Todo listo para comenzar el recorrido!
                 </h3>
                 <p style={{ fontSize: '0.9rem', color: '#878179', lineHeight: 1.6, maxWidth: '440px', margin: '0 auto 28px auto' }}>
-                  Ahora vamos a recorrer cada uno de los ambientes que elegiste para comprender cómo los vivís y detectar oportunidades para mejorar tu bienestar.
+                  Ahora vamos a recorrer tu <strong>{form.targetRoom}</strong> para comprender cómo influye en tu vida cotidiana y detectar sus fortalezas y oportunidades de mejora.
                 </p>
                 <button type="button" onClick={goNext} className="btn btn-primary" style={{ padding: '12px 28px', fontSize: '0.9rem', margin: '0 auto' }}>
                   Comenzar el recorrido →
@@ -1231,8 +1072,8 @@ export function WizardScreen() {
 
                       {roomFiles.length < 6 && (
                         <div>
-                          <input type="file" accept="image/*" id={`photo-file-${activeRoom}`} style={{ display: 'none' }}
-                            onChange={(e) => handlePhotoUpload(e.target.files?.[0])} />
+                          <input type="file" accept="image/*" multiple id={`photo-file-${activeRoom}`} style={{ display: 'none' }}
+                            onChange={(e) => handlePhotoUpload(e.target.files)} />
                           <button type="button" onClick={() => document.getElementById(`photo-file-${activeRoom}`)?.click()}
                             className="room-card-option" style={{ borderStyle: 'dashed', height: '88px', width: '100%', padding: 0 }}>
                             <Upload size={14} style={{ color: '#987557' }} />
@@ -1247,9 +1088,13 @@ export function WizardScreen() {
                       <span>Ideal: 2 a 4 fotos</span>
                     </div>
 
-                    {roomFiles.length >= 2 && (
+                    {roomFiles.length > 0 ? (
                       <div className="animate-[fadeIn_0.3s_ease-out]" style={{ background: 'rgba(92,122,99,0.06)', border: '1px solid rgba(92,122,99,0.2)', padding: '12px', borderRadius: '6px', marginBottom: '16px', fontSize: '0.8rem', color: '#3A4F3F', fontWeight: 550 }}>
-                        ✨ Perfecto. Ya conocemos este espacio. Ahora queremos comprender cómo lo vivís.
+                        ✨ Perfecto. Recibimos {roomFiles.length} foto{roomFiles.length > 1 ? 's' : ''}. Esto nos ayudará a refinar tu diagnóstico con observaciones reales de IA.
+                      </div>
+                    ) : (
+                      <div className="animate-[fadeIn_0.3s_ease-out]" style={{ background: 'rgba(152,117,87,0.04)', border: '1px dashed rgba(152,117,87,0.3)', padding: '12px', borderRadius: '6px', marginBottom: '16px', fontSize: '0.78rem', color: '#6E6A63' }}>
+                        💡 Podés continuar directamente sin cargar fotos haciendo clic en "Siguiente paso". El diagnóstico se basará en tus respuestas del cuestionario.
                       </div>
                     )}
 

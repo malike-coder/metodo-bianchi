@@ -673,57 +673,57 @@ const ACTION_DATABASE: RecommendationTemplate[] = [
 ];
 
 export function generateActionItems(form: WizardFormData): ActionItem[] {
-  const selected = form.selectedRooms;
+  const selected = form.selectedRooms.length > 0 ? form.selectedRooms : [form.targetRoom || 'Dormitorio Principal'];
   const isRenting = form.housingStatus === 'Alquiler';
   
-  // Filter ACTION_DATABASE using selected rooms and rental status
-  const matched = ACTION_DATABASE.filter((rec) => {
-    // 1. Capa 1 & 2: Room matches
-    if (!selected.includes(rec.room)) return false;
+  const items: ActionItem[] = [];
 
-    // 2. Capa 5: Restricción del tipo de vivienda
-    if (isRenting && rec.onlyFor === 'Propio') return false;
-    if (!isRenting && rec.onlyFor === 'Alquiler') return false;
-
-    return true;
-  });
-
-  // Map RecommendationTemplate items to ActionItem types
-  const items: ActionItem[] = matched.map((rec) => {
-    return {
-      id: `${rec.room}-${rec.timeframe}-${Math.random().toString(36).substr(2, 5)}`,
-      room: rec.room === 'Entrada' ? 'Entrada / Hall' : rec.room,
-      title: rec.title,
-      description: rec.description,
-      timeframe: rec.timeframe,
-      estimatedMinutes: rec.estimatedMinutes,
-      expectedImpact: rec.expectedImpact,
-      impactPercent: rec.impactPercent,
-      isKeyAction: false,
-    };
-  });
-
-  // Find lowest-scoring room to set key action
-  let lowestRoom = 'Dormitorio Principal';
-  let minScore = 100;
-  Object.keys(form.roomEvaluations).forEach((room) => {
-    const e = getNumericRoomEval(form.roomEvaluations[room]);
-    const s = e.feel + e.light + e.order;
-    if (s < minScore) {
-      minScore = s;
-      lowestRoom = room;
-    }
-  });
-
-  // Mark first action in the lowest scoring room (or fallback first action) as Key Action
-  const lowestRoomLabel = lowestRoom === 'Entrada' ? 'Entrada / Hall' : lowestRoom;
-  const keyActionCandidate = items.find((item) => item.room === lowestRoomLabel && item.timeframe === 'week') 
-    || items.find((item) => item.timeframe === 'week')
-    || items[0];
+  selected.forEach((roomName) => {
+    // Standardize room name for matching
+    let lookupRoom = roomName;
+    if (roomName === 'Entrada / Hall') lookupRoom = 'Entrada';
     
-  if (keyActionCandidate) {
-    keyActionCandidate.isKeyAction = true;
-  }
+    // Filter database for this specific room and housing status
+    const matched = ACTION_DATABASE.filter((rec) => {
+      if (rec.room !== lookupRoom) return false;
+      if (isRenting && rec.onlyFor === 'Propio') return false;
+      if (!isRenting && rec.onlyFor === 'Alquiler') return false;
+      return true;
+    });
+
+    if (matched.length === 0) return;
+
+    // Pick 1 Immediate (timeframe: 'today' or 'week')
+    const immediate = matched.find(r => r.timeframe === 'today') || matched.find(r => r.timeframe === 'week') || matched[0];
+    // Pick 1 Intermediate (timeframe: 'month' or 'week' but not same as immediate)
+    const intermediate = matched.find(r => r.timeframe === 'month' && r !== immediate) 
+      || matched.find(r => r.timeframe === 'week' && r !== immediate)
+      || matched.find(r => r !== immediate)
+      || matched[0];
+    // Pick 1 Structural (timeframe: 'project' but not same as prior ones)
+    const structural = matched.find(r => r.timeframe === 'project' && r !== immediate && r !== intermediate)
+      || matched.find(r => r !== immediate && r !== intermediate)
+      || matched[0];
+
+    const chosen = [immediate, intermediate, structural];
+    
+    chosen.forEach((rec, idx) => {
+      // Avoid adding duplicate fallbacks if there are few recommendations
+      if (idx > 0 && chosen.slice(0, idx).includes(rec)) return;
+
+      items.push({
+        id: `${roomName}-${rec.timeframe}-${Math.random().toString(36).substr(2, 5)}`,
+        room: roomName === 'Entrada' ? 'Entrada / Hall' : roomName,
+        title: rec.title,
+        description: rec.description,
+        timeframe: rec.timeframe,
+        estimatedMinutes: rec.estimatedMinutes,
+        expectedImpact: rec.expectedImpact,
+        impactPercent: rec.impactPercent,
+        isKeyAction: idx === 0, // mark the immediate action as key action
+      });
+    });
+  });
 
   return items;
 }
@@ -737,6 +737,10 @@ export function buildClientFromForm(rawForm: WizardFormData): BianchClient {
   const narrativeText = generateNarrative(form);
   const actionItems = generateActionItems(form);
 
+  const selected = form.completedRooms && form.completedRooms.length > 0
+    ? form.completedRooms
+    : (form.selectedRooms.length > 0 ? form.selectedRooms : [form.targetRoom || 'Dormitorio Principal']);
+
   return {
     id: `user-${Date.now()}`,
     name: form.name || 'Invitado Bianchi',
@@ -749,8 +753,8 @@ export function buildClientFromForm(rawForm: WizardFormData): BianchClient {
     transition: form.transition,
     hasPets: form.hasPets,
     desiredFeeling: form.desiredFeeling,
-    selectedRooms: form.selectedRooms.length > 0 ? form.selectedRooms : ['Entrada', 'Living', 'Cocina', 'Dormitorio Principal', 'Baño', 'Escritorio', 'Patio / Balcón'],
-    photos: (form.selectedRooms.length > 0 ? form.selectedRooms : ['Entrada', 'Living', 'Cocina', 'Dormitorio Principal', 'Baño', 'Escritorio', 'Patio / Balcón']).map((room, idx) => {
+    selectedRooms: selected,
+    photos: selected.map((room, idx) => {
       const files = form.photoFiles[room] || [];
       const file = files[0];
       let url = '/bianchi_interior.png';

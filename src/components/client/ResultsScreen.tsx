@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAppStore } from '../../store/useAppStore';
-import { getStatusConfig, getIbbhStatus } from '../../utils/ibbhCalculator';
+import { getStatusConfig, getIbbhStatus, getNumericRoomEval } from '../../utils/ibbhCalculator';
 import { Button } from '../ui/Button';
 import { RadarChart } from '../results/RadarChart';
 import { FloorPlan } from '../results/FloorPlan';
@@ -11,9 +11,62 @@ import { Download, RefreshCw, Sparkles, BookOpen } from 'lucide-react';
 import type { DimensionScores } from '../../types/bianchi';
 
 export function ResultsScreen() {
-  const { currentClient, setClientScreen, resetForm, completedActionIds } = useAppStore();
+  const { currentClient, setClientScreen, resetForm, completedActionIds, form, updateForm, setWizardStep } = useAppStore();
   const [showBibliography, setShowBibliography] = useState(false);
   const [showEvolucion, setShowEvolucion] = useState(false);
+
+  // Helper to calculate room specific score
+  const getRoomSpecificScore = (roomName: string): number => {
+    const roomEval = getNumericRoomEval(form.roomEvaluations[roomName]);
+    return Math.round(((roomEval.feel + roomEval.light + roomEval.order) / 15) * 100);
+  };
+
+  const getRoomIcon = (room: string): string => {
+    const icons: Record<string, string> = {
+      'Dormitorio Principal': '🛌',
+      'Cocina': '🍳',
+      'Living': '🛋️',
+      'Escritorio': '💻',
+      'Entrada': '🚪',
+      'Baño': '🚿',
+      'Comedor': '🍽️',
+      'Dormitorio Infantil': '🧸',
+      'Playroom': '🎮',
+      'Vestidor': '👗',
+      'Lavadero': '🧺',
+      'Pasillo / Distribuidor': '🧱',
+      'Patio / Balcón': '🌿'
+    };
+    return icons[room] || '🏠';
+  };
+
+  const handleStartRoomAssessment = (roomName: string) => {
+    const currentSelected = form.selectedRooms || [];
+    const newSelected = Array.from(new Set([...currentSelected, roomName]));
+    
+    updateForm({ 
+      targetRoom: roomName,
+      selectedRooms: newSelected
+    });
+    setWizardStep(4);
+    setClientScreen('wizard');
+  };
+
+  const ALL_CHECKLIST_ROOMS = [
+    'Dormitorio Principal',
+    'Cocina',
+    'Living',
+    'Escritorio',
+    'Entrada',
+    'Baño',
+    'Comedor',
+    'Dormitorio Infantil',
+    'Playroom',
+    'Vestidor',
+    'Lavadero',
+    'Pasillo / Distribuidor',
+    'Patio / Balcón'
+  ];
 
   if (!currentClient) {
     return null;
@@ -129,6 +182,44 @@ export function ResultsScreen() {
         <h2 style={{ fontSize: 'clamp(2rem, 3.5vw, 2.8rem)', fontWeight: 300, marginBottom: '6px' }}>
           El Mapa de Habitar de {firstName}
         </h2>
+        
+        {/* Photo vs Answer Indicator Badge */}
+        {(() => {
+          const hasPhotos = currentClient.photos && currentClient.photos.some(p => p.url !== '/bianchi_interior.png' && p.url && !p.url.includes('undefined'));
+          return hasPhotos ? (
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              background: 'rgba(92, 122, 99, 0.08)',
+              color: '#3A4F3F',
+              border: '1px solid rgba(92, 122, 99, 0.2)',
+              padding: '6px 14px',
+              borderRadius: '20px',
+              fontSize: '0.76rem',
+              fontWeight: 550,
+              marginTop: '10px'
+            }}>
+              👁️ Diagnóstico enriquecido con observaciones visuales de tus fotos
+            </div>
+          ) : (
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              background: 'rgba(152, 117, 87, 0.06)',
+              color: '#6E6A63',
+              border: '1px solid rgba(152, 117, 87, 0.15)',
+              padding: '6px 14px',
+              borderRadius: '20px',
+              fontSize: '0.76rem',
+              fontWeight: 550,
+              marginTop: '10px'
+            }}>
+              📝 Diagnóstico basado en tus respuestas del cuestionario
+            </div>
+          );
+        })()}
       </div>
 
       {/* Personalized Narrative (Warm & Humanized) */}
@@ -139,31 +230,110 @@ export function ResultsScreen() {
         </p>
       </div>
 
-      {/* IBBH Score Card */}
-      <div className="ibbh-score-display" style={{ marginBottom: '50px' }}>
-        <div className="ibbh-container-outer">
-          
-          <div className="ibbh-circle">
-            <div className="ibbh-circle-ring"></div>
-            <span className="ibbh-number">{dynamicIbbh}</span>
-            <span className="ibbh-label">IBBH</span>
-          </div>
+      {/* General and Room IBBH Scores */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+        gap: '24px',
+        marginBottom: '50px'
+      }}>
+        {/* General Home IBBH Card */}
+        <div className="ibbh-score-display" style={{ margin: 0, height: '100%' }}>
+          <div className="ibbh-container-outer" style={{ padding: '20px' }}>
+            <div className="ibbh-circle" style={{ width: '90px', height: '90px' }}>
+              <div className="ibbh-circle-ring"></div>
+              <span className="ibbh-number" style={{ fontSize: '2rem' }}>{dynamicIbbh}</span>
+              <span className="ibbh-label" style={{ fontSize: '0.6rem' }}>GENERAL</span>
+            </div>
 
-          <div className="ibbh-right-info">
-            <div className={statusBadgeClass}>{statusLabelText}</div>
-            <span className="ibbh-over-label">Puntaje de bienestar sobre 100</span>
-            <span className="ibbh-over-100" style={{ fontStyle: 'normal' }}>
-              {dynamicIbbh >= 75
-                ? '¡Tu hogar te está cuidando bien!'
-                : dynamicIbbh >= 60
-                ? 'Tu espacio tiene una base sólida. Hay margen real de mejora.'
-                : 'Encontramos oportunidades concretas para que tu casa te cuide mejor.'}
-            </span>
+            <div className="ibbh-right-info" style={{ gap: '2px' }}>
+              <div className={statusBadgeClass} style={{ fontSize: '0.72rem', padding: '3px 8px' }}>{statusLabelText}</div>
+              <span className="ibbh-over-label" style={{ fontSize: '0.7rem' }}>IBBH General del Hogar</span>
+              <span className="ibbh-over-100" style={{ fontStyle: 'normal', fontSize: '0.78rem', lineHeight: 1.3 }}>
+                {dynamicIbbh >= 75
+                  ? '¡Tu hogar te está cuidando bien!'
+                  : dynamicIbbh >= 60
+                  ? 'Tu espacio tiene una base sólida. Hay margen real de mejora.'
+                  : 'Encontramos oportunidades concretas para que tu casa te cuide mejor.'}
+              </span>
+            </div>
           </div>
-
+          <div className="ibbh-message-box" style={{ fontSize: '1.1rem', marginTop: '8px', padding: '10px' }}>
+            "{statusConfig.message}"
+          </div>
         </div>
-        <div className="ibbh-message-box" style={{ fontSize: '1.45rem', marginTop: '12px' }}>
-          "{statusConfig.message}"
+
+        {/* Room Specific Scores & Key Improvements Card */}
+        <div className="glass-card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          <h4 style={{ fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 600, color: '#987557', margin: 0 }}>
+            Puntajes por Ambiente Evaluado
+          </h4>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', overflowY: 'auto', maxHeight: '140px' }}>
+            {currentClient.selectedRooms.map((room) => {
+              const score = getRoomSpecificScore(room);
+              let rStatus = 'saludable';
+              if (score >= 90) rStatus = 'regenerativo';
+              else if (score >= 75) rStatus = 'saludable';
+              else if (score >= 60) rStatus = 'funcional';
+              else if (score >= 40) rStatus = 'vulnerable';
+              else rStatus = 'exigente';
+              
+              const labelMap: Record<string, string> = {
+                regenerativo: 'Regenerativo',
+                saludable: 'Saludable',
+                funcional: 'Funcional',
+                vulnerable: 'En Transición',
+                exigente: 'Exigente'
+              };
+
+              return (
+                <div key={room} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.85rem', padding: '6px 0', borderBottom: '1px solid #FAF9F6' }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 550 }}>
+                    <span>{getRoomIcon(room)}</span> {room}
+                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '0.72rem', padding: '2px 6px', borderRadius: '4px', background: rStatus === 'regenerativo' || rStatus === 'saludable' ? '#EAEFEA' : '#FDF6ED', color: rStatus === 'regenerativo' || rStatus === 'saludable' ? '#3B5943' : '#8A5C2E' }}>
+                      {labelMap[rStatus]}
+                    </span>
+                    <strong style={{ fontSize: '0.9rem', color: '#1C1917' }}>{score}/100</strong>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Greatest Opportunity for Improvement (Lowest Room) */}
+          {currentClient.selectedRooms.length > 0 && (() => {
+            let lowestRoomName = '';
+            let lowestScore = 101;
+            currentClient.selectedRooms.forEach((r) => {
+              const s = getRoomSpecificScore(r);
+              if (s < lowestScore) {
+                lowestScore = s;
+                lowestRoomName = r;
+              }
+            });
+            if (!lowestRoomName) return null;
+            return (
+              <div style={{
+                background: 'rgba(180, 91, 91, 0.05)',
+                border: '1px solid rgba(180, 91, 91, 0.15)',
+                borderRadius: '6px',
+                padding: '10px 12px',
+                fontSize: '0.78rem',
+                color: '#8A3232',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                marginTop: 'auto'
+              }}>
+                <span>💡</span>
+                <span>
+                  <strong>Mayor oportunidad de mejora:</strong> tu <strong>{lowestRoomName}</strong> ({lowestScore}/100). Es el espacio con más fricciones detectadas.
+                </span>
+              </div>
+            );
+          })()}
         </div>
       </div>
 
@@ -250,6 +420,84 @@ export function ResultsScreen() {
           <FloorPlan rooms={currentClient.selectedRooms} dimensions={currentClient.dimensions} />
         </div>
 
+      </div>
+
+      {/* ── CONSTRUÍ TU MAPA INTEGRAL (Checklist de Progreso) ── */}
+      <div className="glass-card" style={{ marginBottom: '45px', padding: '30px' }}>
+        <span style={{ fontSize: '0.65rem', textTransform: 'uppercase', color: '#987557', fontWeight: 600, display: 'block', marginBottom: '8px', letterSpacing: '0.12em' }}>
+          PASO 6 · TU PROGRESO
+        </span>
+        <h3 style={{ fontSize: '1.6rem', fontFamily: 'Cormorant Garamond, serif', fontWeight: 300, color: '#1C1917', margin: '0 0 12px 0' }}>
+          Construí tu Mapa Integral de Bienestar Habitacional
+        </h3>
+        <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', marginBottom: '24px', lineHeight: 1.5 }}>
+          Hoy conocimos una parte importante de tu hogar. Las casas funcionan como un sistema interconectado. Al completar el análisis de los demás ambientes, obtendrás un diagnóstico global del hogar y un mapa integral de prioridades.
+        </p>
+
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+          gap: '16px',
+          marginBottom: '8px'
+        }}>
+          {ALL_CHECKLIST_ROOMS.map((roomName) => {
+            const isCompleted = currentClient.selectedRooms.includes(roomName);
+            const score = isCompleted ? getRoomSpecificScore(roomName) : null;
+            
+            return (
+              <div key={roomName} style={{
+                border: '1px solid var(--border-color)',
+                borderRadius: '8px',
+                padding: '16px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                background: isCompleted ? 'rgba(92, 122, 99, 0.03)' : '#fff',
+                borderColor: isCompleted ? 'rgba(92, 122, 99, 0.2)' : 'var(--border-color)'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <span style={{ fontSize: '1.4rem' }}>
+                    {getRoomIcon(roomName)}
+                  </span>
+                  <div>
+                    <h4 style={{ margin: 0, fontSize: '0.92rem', fontWeight: 600, color: '#1C1917' }}>
+                      {roomName}
+                    </h4>
+                    <span style={{ fontSize: '0.72rem', color: isCompleted ? '#5C7A63' : 'var(--text-muted)', fontWeight: isCompleted ? 500 : 400 }}>
+                      {isCompleted 
+                        ? `✅ Analizado · IBBH: ${score}/100` 
+                        : '⬜ Pendiente de recorrido'}
+                    </span>
+                  </div>
+                </div>
+
+                {!isCompleted ? (
+                  <button
+                    type="button"
+                    onClick={() => handleStartRoomAssessment(roomName)}
+                    className="choice-pill-btn"
+                    style={{
+                      padding: '6px 12px',
+                      fontSize: '0.76rem',
+                      borderColor: 'var(--brand-primary)',
+                      color: 'var(--brand-primary)',
+                      background: 'transparent',
+                      fontWeight: 600,
+                      borderRadius: '16px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    🔍 Recorrer
+                  </button>
+                ) : (
+                  <span style={{ fontSize: '0.74rem', color: '#5C7A63', fontWeight: 600 }}>
+                    Listo
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {/* ── 4 & 5. PLAN DE ACCIÓN (La Joya + Collapsibles) ─────── */}

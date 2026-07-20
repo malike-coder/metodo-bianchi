@@ -204,6 +204,9 @@ export interface WizardFormData {
   avoidedRoomName: string;
   desiredDailyFeeling: string;
   relationshipPhrase: string;
+  improvementGoal: string;
+  targetRoom: string;
+  completedRooms: string[];
 }
 
 export const DEFAULT_WIZARD_FORM: WizardFormData = {
@@ -217,7 +220,7 @@ export const DEFAULT_WIZARD_FORM: WizardFormData = {
   slideEmotional2: 3,
   predominantEmotion: 'Calma',
   desiredFeeling: '',
-  selectedRooms: ['Entrada', 'Living', 'Cocina', 'Dormitorio Principal', 'Baño', 'Escritorio', 'Patio / Balcón'],
+  selectedRooms: [],
   roomEvaluations: {},
   slidePhys1: 3,
   slidePhys2: 3,
@@ -250,4 +253,7 @@ export const DEFAULT_WIZARD_FORM: WizardFormData = {
   avoidedRoomName: '',
   desiredDailyFeeling: '🌿 Más calma.',
   relationshipPhrase: '',
+  improvementGoal: '',
+  targetRoom: '',
+  completedRooms: [],
 };

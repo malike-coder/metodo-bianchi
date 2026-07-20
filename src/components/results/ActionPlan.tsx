@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import type { ActionItem, ActionTimeframe } from '../../types/bianchi';
+import type { ActionItem } from '../../types/bianchi';
 import { useAppStore } from '../../store/useAppStore';
 
 interface Props {
@@ -18,7 +18,7 @@ const DID_YOU_KNOW_DATABASE: Record<string, string> = {
 
 export function ActionPlan({ items }: Props) {
   const { form, completedActionIds, toggleActionComplete } = useAppStore();
-  const [activeTab, setActiveTab] = useState<ActionTimeframe>('today');
+  const [activeLevel, setActiveLevel] = useState<'inmediata' | 'intermedia' | 'estructural'>('inmediata');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [showMotorDetails, setShowMotorDetails] = useState(false);
   const [showDisciplines, setShowDisciplines] = useState<Record<string, boolean>>({});
@@ -69,8 +69,12 @@ export function ActionPlan({ items }: Props) {
     }));
   };
 
-  // Filter items for current active tab
-  const tabItems = items.filter((item) => item.timeframe === activeTab);
+  // Filter items for current active level
+  const tabItems = items.filter((item) => {
+    if (activeLevel === 'inmediata') return item.timeframe === 'today' || item.timeframe === 'week';
+    if (activeLevel === 'intermedia') return item.timeframe === 'month';
+    return item.timeframe === 'project';
+  });
 
   // Find key action for current tab (prioritizes isKeyAction, fallback to first item)
   const keyAction = tabItems.find((item) => item.isKeyAction) || tabItems[0];
@@ -90,12 +94,11 @@ export function ActionPlan({ items }: Props) {
     progressText = '¡Excelente! Lograste completar todas las microacciones de tu plan. Tu casa hoy te cuida de verdad.';
   }
 
-  // Mapping timeframe tabs
-  const tabsConfig: { key: ActionTimeframe; label: string }[] = [
-    { key: 'today', label: 'Hoy (30 min)' },
-    { key: 'week', label: 'Esta semana' },
-    { key: 'month', label: 'Este mes' },
-    { key: 'project', label: '6 meses / Reformas' },
+  // Mapping level tabs
+  const tabsConfig = [
+    { key: 'inmediata' as const, label: 'Acción Inmediata (Bajo costo / Sin obra)' },
+    { key: 'intermedia' as const, label: 'Acción Intermedia (Decoración / Luz / Muebles)' },
+    { key: 'estructural' as const, label: 'Acción Estructural (Proyecto / Obra)' },
   ];
 
   return (
@@ -149,14 +152,13 @@ export function ActionPlan({ items }: Props) {
 
       {/* Collapsible Motor de Coherencia Contextual Banner */}
       <div style={{
-        background: 'rgba(92,122,99,0.03)',
+        background: 'rgba(92,122,99,0.02)',
         border: '1px solid rgba(92,122,99,0.15)',
         borderRadius: '8px',
-        padding: '12px 16px',
+        padding: '16px 20px',
         marginBottom: '24px',
-        textAlign: 'left',
       }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
           <span style={{ fontSize: '0.85rem', color: '#5C7A63', fontWeight: 500, display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
             <span>✅</span> Estas recomendaciones fueron pensadas especialmente para vos y para la forma en que vivís tu casa.
           </span>
@@ -247,10 +249,10 @@ export function ActionPlan({ items }: Props) {
           <button
             key={tab.key}
             onClick={() => {
-              setActiveTab(tab.key);
+              setActiveLevel(tab.key);
               setExpandedId(null); // Reset details drawer
             }}
-            className={`tab-action-btn ${activeTab === tab.key ? 'active' : ''}`}
+            className={`tab-action-btn ${activeLevel === tab.key ? 'active' : ''}`}
           >
             {tab.label}
           </button>
